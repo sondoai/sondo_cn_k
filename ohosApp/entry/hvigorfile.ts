@@ -20,13 +20,17 @@ node?.afterNodeEvaluate((n: HvigorNode) => {
     if (ctx.getBuildMode() !== 'debug') {
       throw new Error('SONDO_KUIKLY_HOT_RELOAD can only be enabled for a debug build');
     }
-    hotReloadUrl = process.env.SONDO_HOT_RELOAD_URL || 'http://127.0.0.1:8088';
-    if (!/^https?:\/\/[a-zA-Z0-9.:[\]-]+\/?$/.test(hotReloadUrl)) {
+    const configuredUrl = process.env.SONDO_HOT_RELOAD_URL || 'http://127.0.0.1:8088';
+    if (!/^https?:\/\/[a-zA-Z0-9.:[\]-]+\/?$/.test(configuredUrl)) {
       throw new Error('SONDO_HOT_RELOAD_URL must be an HTTP origin, for example http://192.168.1.8:8088');
     }
+    hotReloadUrl = configuredUrl;
   }
   const opt = ctx.getBuildProfileOpt();
-  const fields = opt.buildOption?.arkOptions?.buildProfileFields;
+  // hvigor 把自定义字段标成 object，没有索引签名，这里收成可写的键值表。
+  const fields = opt.buildOption?.arkOptions?.buildProfileFields as
+    | Record<string, string | boolean>
+    | undefined;
   if (!fields) {
     throw new Error('entry/build-profile.json5 缺少 buildOption.arkOptions.buildProfileFields');
   }
@@ -44,9 +48,10 @@ node?.afterNodeEvaluate((n: HvigorNode) => {
     if (!nativeOptions) {
       throw new Error('entry/build-profile.json5 缺少 buildOption.externalNativeOptions');
     }
-    const args = nativeOptions.arguments ?? '';
-    if (!args.split(/\s+/).includes(HOT_RELOAD_CMAKE_ARG)) {
-      nativeOptions.arguments = args.length === 0 ? HOT_RELOAD_CMAKE_ARG : `${args} ${HOT_RELOAD_CMAKE_ARG}`;
+    const rawArgs = nativeOptions.arguments;
+    const parts = (Array.isArray(rawArgs) ? rawArgs : (rawArgs ?? '').split(/\s+/)).filter((part) => part.length > 0);
+    if (!parts.includes(HOT_RELOAD_CMAKE_ARG)) {
+      nativeOptions.arguments = [...parts, HOT_RELOAD_CMAKE_ARG].join(' ');
     }
     fields['KUIKLY_HOT_RELOAD'] = true;
     fields['KUIKLY_HOT_RELOAD_URL'] = hotReloadUrl.replace(/\/$/, '');

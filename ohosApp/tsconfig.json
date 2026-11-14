@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "types": [],
+    "paths": {
+      "@ohos/hvigor": ["./hvigor-types/hvigor"],
+      "@ohos/hvigor-ohos-plugin": ["./hvigor-types/hvigor-ohos-plugin"],
+      "fs": ["./hvigor-types/fs"]
+    }
+  },
+  "include": [
+    "hvigorfile.ts",
+    "entry/hvigorfile.ts",
+    "hvigor-types/**/*.d.ts"
+  ]
+}

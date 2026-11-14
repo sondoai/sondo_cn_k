@@ -1,0 +1,71 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Android: 编译 shared",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/scripts/vscode/run.mjs",
+      "args": ["compile"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "noDebug": true
+    },
+    {
+      "name": "Android: 安装并启动 Debug",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/scripts/vscode/run.mjs",
+      "args": ["install"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "noDebug": true
+    },
+    {
+      "name": "Android: 安装并启动 Debug（测试环境）",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/scripts/vscode/run.mjs",
+      "args": ["install-test"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "noDebug": true
+    },
+    {
+      "name": "Android: 安装热重载包并启动",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/scripts/vscode/run.mjs",
+      "args": ["install-hot"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "noDebug": true
+    },
+    {
+      "name": "Android: 热重载",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/scripts/vscode/run.mjs",
+      "args": ["hot"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "noDebug": true
+    },
+    {
+      "name": "Android: 启动模拟器",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/scripts/vscode/run.mjs",
+      "args": ["emulator"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "noDebug": true
+    }
+  ]
+}
