@@ -21,3 +21,6 @@ ohosApp/build/
 # Kuikly Skills 首次调用时克隆的 KuiklyUI 源码与更新时间戳
 .claude/skills/*/references/KuiklyUI/
 .claude/skills/*/scripts/.last-update
+
+# 正式签名（从参考工程 android/key 复制，不入库）
+androidApp/key/

@@ -327,10 +327,26 @@ internal class SquareProfilePage : BasePager() {
                         }
                     }
                 }
-                // 吸顶 Tab 条：头部完全收起后出现
+                // 吸顶 Tab 条：头部完全收起后出现。列表会从它下面滚过，必须有底：
+                // 毛玻璃 + 面板实色，顶部圆角与收起后的面板对齐。
                 vif({ ctx.headerOffset >= SquareProfileLayout.headerCollapseExtent }) {
                     View {
-                        attr { absolutePosition(top = 0f, left = 0f, right = 0f) }
+                        attr {
+                            absolutePosition(top = 0f, left = 0f, right = 0f)
+                            borderRadius(SquareProfileLayout.panelCornerRadius, SquareProfileLayout.panelCornerRadius, 0f, 0f)
+                        }
+                        Blur {
+                            attr {
+                                absolutePositionAllZero()
+                                blurRadius(SquareProfileLayout.panelBlurSigma)
+                            }
+                        }
+                        View {
+                            attr {
+                                absolutePositionAllZero()
+                                backgroundColor(SquareProfileLayout.panelColorAt(ctx.tabPage))
+                            }
+                        }
                         profileTabBar(ctx)
                     }
                 }

@@ -114,7 +114,7 @@ fun ViewContainer<*, *>.SDProgressBar(init: SDProgressBarView.() -> Unit) {
 class SDRingProgressAttr : ComposeAttr() {
     /** 进度 0..1 */
     var progress: Float by observable(0f)
-    var strokeWidth: Float = 2f
+    var strokeWidth: Float by observable(2f)
     var progressColor: Color by observable(Color.WHITE)
     /** 轨道色（Dart 默认 0x0DFFFFFF） */
     var trackColor: Color by observable(SDColors.white5)

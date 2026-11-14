@@ -464,33 +464,29 @@ private fun ViewContainer<*, *>.squeezePlayerCard(ctx: MainMorphingNavBarView) {
     ) {
         View {
             attr { flex(1f) }
-            vif({ ctx.squeeze < threshold }) {
-                // 收起态：封面撑满卡片，点封面展开播放器
-                View {
-                    attr {
-                        absolutePositionAllZero()
-                        allCenter()
-                    }
-                    playerOrb(
-                        ctx,
-                        size = {
+            // 收起 / 展开共用同一个封面球：用 vif 分成两个实例时，每次展开、收起都会销毁重建，
+            // 封面图重新加载（占位底色闪一下）、旋转角度也归零。
+            View {
+                attr {
+                    absolutePositionAllZero()
+                    justifyContentCenter()
+                    // 收起态封面撑满卡片居中；展开态靠左，右边留给标题和控制按钮
+                    if (ctx.squeeze < threshold) alignItemsCenter() else alignItemsFlexStart()
+                }
+                playerOrb(
+                    ctx,
+                    collapsed = { ctx.squeeze < threshold },
+                    size = {
+                        if (ctx.squeeze < threshold) {
                             val inner = MainNavColors.barHeight - ctx.playerPadding * 2f
                             minOf(ctx.playerWidth - ctx.playerPadding * 2f, inner)
-                        },
-                        edgeToEdge = true,
-                        onTap = { ctx.togglePlayerExpanded() },
-                    )
-                }
-            }
-            vif({ ctx.squeeze >= threshold }) {
-                View {
-                    attr {
-                        absolutePosition(top = 0f, left = 0f, bottom = 0f)
-                        justifyContentCenter()
-                    }
-                    // 展开态：点封面进入音乐详情
-                    playerOrb(ctx, size = { MainNavColors.orbSizeExpanded }, edgeToEdge = false, onTap = { ctx.navigateToSongDetail() })
-                }
+                        } else {
+                            MainNavColors.orbSizeExpanded
+                        }
+                    },
+                    // 收起态点封面展开播放器；展开态点封面进入音乐详情
+                    onTap = { if (ctx.squeeze < threshold) ctx.togglePlayerExpanded() else ctx.navigateToSongDetail() },
+                )
             }
             vif({ ctx.showExpandedContent }) {
                 View {
@@ -536,11 +532,12 @@ private fun ViewContainer<*, *>.squeezePlayerCard(ctx: MainMorphingNavBarView) {
 /** Dart `MainPlayerOrb`：圆形封面 + 环形进度；播放时封面 10 秒一圈旋转，暂停保留角度。 */
 private fun ViewContainer<*, *>.playerOrb(
     ctx: MainMorphingNavBarView,
+    collapsed: () -> Boolean,
     size: () -> Float,
-    edgeToEdge: Boolean,
     onTap: () -> Unit,
 ) {
-    val stroke = if (edgeToEdge) MainNavColors.progressStrokeWidth else MainNavColors.progressStrokeWidthExpanded
+    // 收起态封面贴边（edge-to-edge），展开态细环
+    val stroke = { if (collapsed()) MainNavColors.progressStrokeWidth else MainNavColors.progressStrokeWidthExpanded }
     View {
         attr {
             val s = size()
@@ -551,7 +548,7 @@ private fun ViewContainer<*, *>.playerOrb(
         MainOrbCover {
             attr {
                 // 封面在环内缘内侧：环居中描边，内缘在 size/2 - stroke
-                coverSize = { val s = size(); if (edgeToEdge) s - stroke * 2f + 1f else s - stroke * 2f - 1f }
+                coverSize = { val s = size(); if (collapsed()) s - stroke() * 2f + 1f else s - stroke() * 2f - 1f }
                 cover = ctx.songCover
                 playing = ctx.isPlaying
             }
@@ -559,7 +556,7 @@ private fun ViewContainer<*, *>.playerOrb(
         SDRingProgress {
             attr {
                 absolutePositionAllZero()
-                strokeWidth = stroke
+                strokeWidth = stroke()
                 progressColor = MainNavColors.progressColor
                 trackColor = MainNavColors.progressTrackColor
                 progress = ctx.progress.coerceIn(0f, 1f)

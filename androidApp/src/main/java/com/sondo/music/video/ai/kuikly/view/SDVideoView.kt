@@ -696,6 +696,9 @@ class SDVideoView(context: Context) : FrameLayout(context), IKuiklyRenderViewExp
             matrix.setScale(sx, sy, w / 2f, h / 2f)
         }
         view.setTransform(matrix)
+        // contain / cover 在拿到视频尺寸前没法算矩阵：这时出的帧会被拉满整个视图（开播瞬间上下闪一下），
+        // 先隐藏，尺寸到了、矩阵正确后再显示。
+        view.alpha = if (fit != FIT_FILL && (videoWidth <= 0 || videoHeight <= 0)) 0f else 1f
         view.invalidate()
     }
 

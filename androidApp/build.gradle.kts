@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     kotlin("android")
@@ -32,16 +34,36 @@ android {
         buildConfig = true
     }
 
+    // 正式签名：极光一键登录、微信登录 / 支付都按「包名 + 签名」校验，debug 签名在真机上取号会失败、
+    // 授权页不出现（直接落到短信登录页）。和参考工程一样，debug / release 都用正式签名。
+    // 需要 key/key.jks 与 key/keystore.properties（storePassword / keyAlias / keyPassword），缺任一项时退回 debug 签名。
+    val releaseKeystore = file("key/key.jks")
+    val keystorePropsFile = file("key/keystore.properties")
+    val releaseSigning = if (releaseKeystore.exists() && keystorePropsFile.exists()) {
+        val props = Properties().apply { keystorePropsFile.inputStream().use { load(it) } }
+        signingConfigs.create("release") {
+            storeFile = releaseKeystore
+            storePassword = props.getProperty("storePassword")
+            keyAlias = props.getProperty("keyAlias")
+            keyPassword = props.getProperty("keyPassword")
+            enableV1Signing = true
+            enableV2Signing = true
+        }
+    } else {
+        logger.warn("androidApp: key/key.jks 或 key/keystore.properties 缺失，使用 debug 签名（真机一键登录 / 微信不可用）")
+        signingConfigs.getByName("debug")
+    }
+
     buildTypes {
         getByName("debug") {
             isMinifyEnabled = false
+            signingConfig = releaseSigning
         }
         getByName("release") {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            // 发布签名在 key/ 目录配置好后替换；默认用 debug 签名保证可出包自测
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = releaseSigning
         }
     }
 

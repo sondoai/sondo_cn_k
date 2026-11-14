@@ -56,6 +56,16 @@ internal object SquareProfileLayout {
         return expanded + (collapsed - expanded) * progress
     }
 
+    /** 面板实色区透明度（Video / Music，Dart `panelAlphas`）。 */
+    val panelSolidAlphas = floatArrayOf(0.68f, 0.74f)
+
+    /** 面板实色（Dart `panelColorAt`）：吸顶 Tab 条底色，盖住从下面滚过的列表内容。 */
+    fun panelColorAt(page: Float): Color {
+        val p = page.coerceIn(0f, 1f)
+        val alpha = panelSolidAlphas[0] + (panelSolidAlphas[1] - panelSolidAlphas[0]) * p
+        return Color(10, 10, 10, alpha)
+    }
+
     /** 毛玻璃叠色（两个 Tab 都是 #0A0A0A，只插值透明度）。 */
     fun panelBlurTintAt(page: Float): Color {
         val p = page.coerceIn(0f, 1f)

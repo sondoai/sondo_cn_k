@@ -259,24 +259,38 @@ class SDListMvVideoPlayerView : ComposeView<SDListMvVideoPlayerAttr, SDListMvVid
                         View {
                             attr {
                                 absolutePositionAllZero()
-                                padding(12f, 0f, 12f, 0f)
                                 touchEnable(false)
-                                opacity(if (ctx.coverHidden) 0f else 1f)
-                                animate(Animation.easeOut(0.35f), ctx.coverHidden)
                             }
-                            // Dart Center(ImageWidget(cover, width: ∞)) 不给高度：按屏宽、高度随图片比例居中，
-                            // 与视频的 contain 一致，淡出时画面不跳
-                            SDImage {
+                            View {
                                 attr {
-                                    flex(1f)
-                                    url = a.mv.cover
-                                    fit = SDFit.CONTAIN
+                                    absolutePositionAllZero()
+                                    padding(12f, 0f, 12f, 0f)
+                                    // 封面上下留黑：解码器刚出首帧时还不知道视频尺寸，画面会先拉满整块区域，
+                                    // 透明的留白处就会露出来（开始播放时顶部、底部闪一下）。封面淡出前一直盖住。
+                                    backgroundColor(Color.BLACK)
+                                    opacity(if (ctx.coverHidden) 0f else 1f)
+                                    animate(Animation.easeOut(0.35f), ctx.coverHidden)
+                                }
+                                // Dart Center(ImageWidget(cover, width: ∞)) 不给高度：按屏宽、高度随图片比例居中，
+                                // 与视频的 contain 一致，淡出时画面不跳
+                                SDImage {
+                                    attr {
+                                        flex(1f)
+                                        url = a.mv.cover
+                                        fit = SDFit.CONTAIN
+                                    }
                                 }
                             }
-                            SDCoverLoadingBar {
-                                attr {
-                                    absolutePosition(left = 0f, right = 0f, bottom = 12f)
-                                    active = !ctx.coverHidden
+                            // 加载条和播放进度条放在同一位置：轨道底边与进度条轨道底边对齐（加载条自带上下 2 的内边距），
+                            // 封面淡出时加载条淡出、进度条在原地淡入。
+                            if (a.showProgress) {
+                                SDCoverLoadingBar {
+                                    attr {
+                                        absolutePosition(left = 0f, right = 0f, bottom = -2f)
+                                        active = !ctx.coverHidden
+                                        opacity(if (ctx.coverHidden) 0f else 1f)
+                                        animate(Animation.easeOut(0.35f), ctx.coverHidden)
+                                    }
                                 }
                             }
                         }
@@ -336,7 +350,10 @@ class SDListMvVideoPlayerView : ComposeView<SDListMvVideoPlayerAttr, SDListMvVid
                                 SDSeekBar {
                                     attr {
                                         paddingH = 10f
-                                        duration = (ctx.controller?.durationMs ?: 0L).toFloat()
+                                        // 有封面时加载阶段由同位置的加载条表示，封面淡出后进度条才出现（时长为 0 时自身隐藏），
+                                        // 两条不同时出现
+                                        val loading = a.mv.cover.isNotEmpty() && !ctx.coverHidden
+                                        duration = if (loading) 0f else (ctx.controller?.durationMs ?: 0L).toFloat()
                                         position = (ctx.controller?.positionMs ?: 0L).toFloat()
                                         buffered = 0f
                                     }

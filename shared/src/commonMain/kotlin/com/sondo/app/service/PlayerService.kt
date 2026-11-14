@@ -5,6 +5,7 @@ import com.sondo.app.base.AppHost
 import com.sondo.app.base.Events
 import com.sondo.app.base.Routes
 import com.sondo.app.base.currentPager
+import com.sondo.app.core.http.AuthSession
 import com.sondo.app.core.utils.DevLog
 import com.sondo.app.core.utils.HostBinding
 import com.sondo.app.data.models.PlayMode
@@ -397,6 +398,8 @@ object PlayerService {
     @Suppress("UNUSED_PARAMETER")
     fun addMusicHit(seconds: Int) {
         if (currentSong == null) return
+        // 播放计数要登录态；未登录发出去只会换来 401
+        if (AuthSession.accessToken.isEmpty()) return
         Svc.clearTimeout(debounceHitTimer)
         debounceHitTimer = Svc.setTimeout(3000) {
             debounceHitTimer = null

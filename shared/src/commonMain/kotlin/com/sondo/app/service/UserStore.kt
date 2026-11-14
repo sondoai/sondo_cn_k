@@ -185,7 +185,9 @@ object UserStore {
         AppHooks.sessionInvalidHandler = {
             // 未登录时匿名请求被 401 也会走到这里：照常清理，但不当作「被强制下线」广播。
             val hadSession = isLogin || AuthSession.accessToken.isNotEmpty()
-            clearSession()
+            // 没有会话时不清播放现场：未登录播放音乐时，播放计数等匿名请求被 401 不能把正在播的歌停掉、
+            // 进度和歌词清空（真机上表现为「播几秒就停」）。
+            clearSession(keepPlayer = !hadSession)
             if (hadSession) EventBus.post(Events.SESSION_INVALID)
         }
     }
@@ -364,13 +366,13 @@ object UserStore {
     }
 
     /** 清凭证前递增代次，让在途资料、刷新和分页结果立即失效。 */
-    private fun clearSession() {
+    private fun clearSession(keepPlayer: Boolean = false) {
         AuthSession.clear()
-        resetAccountState()
+        resetAccountState(keepPlayer)
     }
 
     /** 切换与失效共用清理，账号相关的连接、缓存和动画均不能带到新账号。 */
-    private fun resetAccountState() {
+    private fun resetAccountState(keepPlayer: Boolean = false) {
         userInfo = null
         isLogin = false
         if (points != 0) {
@@ -381,7 +383,7 @@ object UserStore {
         updateIsSubscribed()
         UmengUtils.clearAnalyticsUser()
         Sp.setString(StorageKey.userInfoStr, "")
-        AccountHooks.cleanListPlay?.invoke()
+        if (!keepPlayer) AccountHooks.cleanListPlay?.invoke()
         PushService.resetOnLogout()
         clearMemoryCache()
         AccountHooks.clearTryFreeTask?.invoke()
