@@ -116,20 +116,19 @@ internal class MusicGenrePage : BasePager() {
     }
 
     fun updateLike(song: SongEntity) {
-        MusicService.onTap(MusicItemType.like, song.toModel(), emptyList())
+        MusicService.onTap(MusicItemType.like, works.latestSong(song.toModel()), emptyList())
     }
 
     private fun updateMusicList(type: String, item: SongModel) {
         val index = paging.list.indexOfFirst { it.id == item.id }
         if (index == -1) return
         when (type) {
-            "like" -> paging.list[index] = paging.list[index].copy(isCollect = item.isCollect, isCollectNum = item.isCollectNum)
-            "share" -> paging.list[index] = paging.list[index].copy(repostCount = item.repostCount)
+            // like / share 的计数由 WorksState 按 id 覆盖，行内局部刷新，不替换元素
             "delete" -> paging.list.removeAt(index)
         }
     }
 
-    private fun currentPlaylist(): List<SongModel> = paging.list.map { it.toModel() }
+    private fun currentPlaylist(): List<SongModel> = paging.list.map { works.latestSong(it.toModel()) }
 
     fun onDetail(song: SongModel) {
         val playlist = currentPlaylist()

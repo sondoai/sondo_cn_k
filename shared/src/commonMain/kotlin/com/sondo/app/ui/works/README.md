@@ -6,6 +6,10 @@
 ## 0. 约定
 
 - 列表项的模型属性是**响应式**的（`item` / `song`）：父级在 `vfor` 里替换列表元素即可刷新行；也可在 `attr { item = ctx.xxx }` 里读 observable。
+- **收藏 / 分享 / 播放数不要替换列表元素**（替换会让 `vfor` 重建整行、封面重新加载）：服务层广播 `MUSIC_LIST_CHANGED` / `MV_LIST_CHANGED`
+  （like / share / play）后，页面级 `WorksState` 按 id 记下覆盖值，列表项在 attr 里读 `songStats(song)` / `mvStats(mv)` / `videoStats(v)`，
+  只重跑图标和数字的 attr。页面把条目交给服务或带去别的页面时用 `latestSong` / `latestMv` / `latestVideo` 合上覆盖值。
+  收藏是乐观更新（`MusicService` / `MvService`：先广播、再请求、失败回滚，无 loading）。两态图标用 `SDToggleIcon`（两张图只切透明度，不闪）。
 - 标准操作走服务：列表项**不注册 `onTap`** 时自动调用 `MusicService.onTap(type, item, list)` / `MvService.onTap(type, item, list)`（与 Dart 调用处一致）；
   注册了 `event { onTap { type -> … } }` 则完全由调用方处理（需要时自己再调服务）。
 - 播放指示、分享 / 下载中转圈、登录态、积分、优惠倒计时来自页面级镜像 `WorksState.of(pager)`（每页一份，订阅
@@ -55,6 +59,7 @@
 `WorksState.of(pager)`：`currentSongId hasCurrentSong currentTitle currentCover isPlaying processingState progress`（`progress` 需先 `watchPosition()`）、
 `musicSharing musicDownloading mvSharing mvDownloading`、`isLogin isSubscribed avatar points`、`recallRemainingSeconds recallTimerText remainingSeconds timerText discountActive`、
 `actionSong currentMv`，方法 `playIcon(songId, bufferingAsLoading)`。全部是响应式字段。
+互动数据：`songStats(song)` `mvStats(mv)` `videoStats(v)`（按 id 的响应式读取）、`latestSong / latestMv / latestVideo`（合上覆盖值），换账号时自动清空。
 
 ---
 

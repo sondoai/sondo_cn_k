@@ -46,6 +46,7 @@ import com.sondo.app.ui.list.SDRefreshList
 import com.sondo.app.ui.list.SDRefreshListView
 import com.sondo.app.ui.works.SDNavRootAppBar
 import com.sondo.app.ui.works.SDSongItem
+import com.sondo.app.ui.works.worksState
 import com.tencent.kuikly.core.base.Color
 import com.tencent.kuikly.core.base.ComposeAttr
 import com.tencent.kuikly.core.base.ComposeEvent
@@ -142,10 +143,6 @@ class HomeTabView : ComposeView<HomeTabAttr, ComposeEvent>() {
         p.on(Events.MUSIC_LIST_CHANGED) { json ->
             val item = json.optJSONObject("item") ?: return@on
             updateMusicList(json.optString("type", ""), SongModel.fromJson(item))
-        }
-        p.on(Events.MV_LIST_CHANGED) { json ->
-            val item = json.optJSONObject("item") ?: return@on
-            updateMvList(json.optString("type", ""), MvModel.fromJson(item))
         }
         bindValueChange({ attr.active }) { if (attr.active) onActivated() }
         // 下拉刷新：SDRefreshList 只刷新新歌，首页要刷新全部区块（自己发起的刷新不算）
@@ -382,6 +379,12 @@ class HomeTabView : ComposeView<HomeTabAttr, ComposeEvent>() {
         page.launch { UserStore.showLoginDialog(page) }
     }
 
+    /** 新歌列表（合上收藏 / 分享覆盖值），作播放列表用。 */
+    internal fun newSongModels(): List<SongModel> {
+        val ws = worksState
+        return newSongs.list.map { ws.latestSong(it.toModel()) }
+    }
+
     /** 跳转歌曲详情并设置播放列表。 */
     internal fun toMusicDetail(song: SongModel, list: List<SongModel>) {
         PlayerService.launch { PlayerService.setPlaylist(list) }
@@ -484,7 +487,7 @@ class HomeTabView : ComposeView<HomeTabAttr, ComposeEvent>() {
             val item = source[i]
             if (item.resultUrl.trim().isEmpty()) continue
             if (i == index) initial = playable.size
-            playable.add(item)
+            playable.add(worksState.latestVideo(item))
         }
         navigateToSquarePlay(
             SquarePlayArgs(
@@ -519,15 +522,13 @@ class HomeTabView : ComposeView<HomeTabAttr, ComposeEvent>() {
 
     // —— 跨页同步 —— //
 
-    /** 跨页同步热门 MV 收藏状态。 */
-    private fun updateMvList(type: String, item: MvModel) {
-        if (type != "like") return
-        val entity = item.toEntity()
-        val index = mvList.indexOfFirst { it.id == entity.id }
-        if (index != -1) mvList[index] = mvList[index].copy(isCollect = entity.isCollect, collectNum = entity.collectNum)
-    }
+    // 热门 MV 的收藏态由 WorksState 按 id 覆盖（卡片本身不展示收藏），进播放页时经 latestVideo 带过去，
+    // 这里不再替换列表元素，否则整张卡片会重建、封面重新加载。
 
-    /** 跨页同步新歌列表状态，type 支持 like/edit/delete/share。 */
+    /**
+     * 跨页同步新歌列表：edit / delete 改列表；like / share 的计数由 WorksState 按 id 覆盖，
+     * 行内只重跑图标和数字的 attr，不替换列表元素（替换会让整行重建）。
+     */
     private fun updateMusicList(type: String, item: SongModel) {
         val entity = item.toEntity()
         val list = newSongs.list
@@ -535,10 +536,8 @@ class HomeTabView : ComposeView<HomeTabAttr, ComposeEvent>() {
         if (index == -1) return
         val cur = list[index]
         when (type) {
-            "like" -> list[index] = cur.copy(isCollect = entity.isCollect, isCollectNum = entity.isCollectNum)
             "edit" -> list[index] = cur.copy(musicCoverUrl = entity.musicCoverUrl, musicTitle = entity.musicTitle)
             "delete" -> list.removeAt(index)
-            "share" -> list[index] = cur.copy(repostCount = entity.repostCount)
         }
     }
 
@@ -574,8 +573,8 @@ class HomeTabView : ComposeView<HomeTabAttr, ComposeEvent>() {
                                     type = "other"
                                 }
                                 event {
-                                    onDetail { s -> ctx.toMusicDetail(s, ctx.newSongs.list.map { it.toModel() }) }
-                                    addPlayList { s -> ctx.playSong(s, ctx.newSongs.list.map { it.toModel() }) }
+                                    onDetail { s -> ctx.toMusicDetail(s, ctx.newSongModels()) }
+                                    addPlayList { s -> ctx.playSong(s, ctx.newSongModels()) }
                                     onLike { s -> ctx.updateLike(s) }
                                 }
                             }

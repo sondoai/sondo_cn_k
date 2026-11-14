@@ -5,6 +5,7 @@ import com.sondo.app.base.Events
 import com.sondo.app.core.utils.isPagerAlive
 import com.sondo.app.data.models.MvModel
 import com.sondo.app.data.models.SongModel
+import com.sondo.app.data.models.VideoContentEntity
 import com.sondo.app.service.ConfigService
 import com.sondo.app.service.MusicService
 import com.sondo.app.service.MvService
@@ -62,6 +63,15 @@ class WorksState private constructor(val pager: BasePager) {
 
     private var positionWatched = false
 
+    // ------------------------------------------------------------ 互动数据（收藏 / 分享 / 播放数）
+    // 列表元素整体替换会让 vfor 重建整行（封面重新加载、闪一下）。互动数据只在这里按 id 覆盖，
+    // 列表项在 attr 里读 [songStats] / [mvStats]：变化时只重跑那几个 attr，不重建视图。
+    private val songOverrides = HashMap<Long, WorkStats>()
+    private val mvOverrides = HashMap<Long, WorkStats>()
+    private val songTicks = HashMap<Long, StatTick>()
+    private val mvTicks = HashMap<Long, StatTick>()
+    private var statsUserId: Long? = null
+
     private fun bind() {
         applyPlayer(PlayerService.snapshot())
         syncBusy()
@@ -76,7 +86,10 @@ class WorksState private constructor(val pager: BasePager) {
             mvSharing = it.optJSONArray("sharing").toStringSet()
             mvDownloading = it.optJSONArray("downloading").toStringSet()
         }
-        pager.on(Events.USER_CHANGED) { syncUser() }
+        pager.on(Events.USER_CHANGED) {
+            syncUser()
+            resetStatsIfUserChanged()
+        }
         pager.on(Events.POINTS_CHANGED) { syncUser() }
         pager.on(Events.OFFER_COUNTDOWN) { syncCountdown() }
         pager.on(Events.CONFIG_CHANGED) { syncCountdown() }
@@ -86,6 +99,86 @@ class WorksState private constructor(val pager: BasePager) {
             actionSong = json.optJSONObject("song")?.let { SongModel.fromJson(it) }
         }
         pager.on(Events.MV_CURRENT_CHANGED) { json -> currentMv = MvModel.fromJson(json) }
+        statsUserId = UserStore.userInfo?.id
+        pager.on(Events.MUSIC_LIST_CHANGED) { json ->
+            val item = json.optJSONObject("item") ?: return@on
+            val song = SongModel.fromJson(item)
+            applyStats(songOverrides, songTicks, song.id, json.optString("type", ""), song.stats())
+        }
+        pager.on(Events.MV_LIST_CHANGED) { json ->
+            val item = json.optJSONObject("item") ?: return@on
+            val mv = MvModel.fromJson(item)
+            applyStats(mvOverrides, mvTicks, mv.id, json.optString("type", ""), mv.stats())
+        }
+    }
+
+    private fun applyStats(
+        overrides: HashMap<Long, WorkStats>,
+        ticks: HashMap<Long, StatTick>,
+        id: Long,
+        type: String,
+        incoming: WorkStats,
+    ) {
+        val old = overrides[id]
+        val next = when (type) {
+            "like" -> (old ?: incoming).copy(liked = incoming.liked, likeNum = incoming.likeNum)
+            "share" -> (old ?: incoming).copy(shareNum = incoming.shareNum)
+            "play" -> (old ?: incoming).copy(hitNum = incoming.hitNum)
+            else -> return
+        }
+        if (next == old) return
+        overrides[id] = next
+        ticks[id]?.let { it.value++ }
+    }
+
+    /** 换账号后收藏态不再适用：丢掉覆盖值，让列表项回到各自的原始数据。 */
+    private fun resetStatsIfUserChanged() {
+        val uid = UserStore.userInfo?.id
+        if (uid == statsUserId) return
+        statsUserId = uid
+        songOverrides.clear()
+        mvOverrides.clear()
+        songTicks.values.forEach { it.value++ }
+        mvTicks.values.forEach { it.value++ }
+    }
+
+    private fun tick(ticks: HashMap<Long, StatTick>, id: Long): StatTick =
+        ticks.getOrPut(id) { StatTick(pager) }
+
+    /** 歌曲的最新互动数据（在 attr 里读：只在这首歌的数据变化时触发重跑）。 */
+    fun songStats(song: SongModel): WorkStats {
+        tick(songTicks, song.id).value
+        return songOverrides[song.id] ?: song.stats()
+    }
+
+    /** MV 的最新互动数据。参数拆开传，广场的 VideoContentEntity 也能用。 */
+    fun mvStats(id: Long, liked: Boolean, likeNum: Int, shareNum: Int, hitNum: Int): WorkStats {
+        tick(mvTicks, id).value
+        return mvOverrides[id] ?: WorkStats(liked, likeNum, shareNum, hitNum)
+    }
+
+    fun mvStats(mv: MvModel): WorkStats = mvStats(mv.id, mv.isCollect, mv.collectNum, mv.repostCount, mv.mvHitNum)
+
+    /** 合上覆盖值的歌曲：交给服务（收藏要按当前状态取反）或带去别的页面时用。 */
+    fun latestSong(song: SongModel): SongModel {
+        val s = songOverrides[song.id] ?: return song
+        return song.copy(isCollect = s.liked, isCollectNum = s.likeNum, repostCount = s.shareNum, musicHitNum = s.hitNum)
+    }
+
+    fun latestMv(mv: MvModel): MvModel {
+        val s = mvOverrides[mv.id] ?: return mv
+        return mv.copy(isCollect = s.liked, collectNum = s.likeNum, repostCount = s.shareNum, mvHitNum = s.hitNum)
+    }
+
+    /** 广场条目（只有 MV 才有互动覆盖）。 */
+    fun videoStats(v: VideoContentEntity): WorkStats =
+        if (v.isMv) mvStats(v.id, v.isCollect, v.collectNum, v.repostCount, v.mvHitNum)
+        else WorkStats(v.isCollect, v.collectNum, v.repostCount, v.mvHitNum)
+
+    fun latestVideo(v: VideoContentEntity): VideoContentEntity {
+        if (!v.isMv) return v
+        val s = mvOverrides[v.id] ?: return v
+        return v.copy(isCollect = s.liked, collectNum = s.likeNum, repostCount = s.shareNum, mvHitNum = s.hitNum)
     }
 
     private fun applyPlayer(json: JSONObject) {
@@ -160,6 +253,16 @@ class WorksState private constructor(val pager: BasePager) {
         }
     }
 }
+
+/** 作品的互动数据：是否已收藏、收藏数、分享数、播放数。 */
+data class WorkStats(val liked: Boolean, val likeNum: Int, val shareNum: Int, val hitNum: Int)
+
+private class StatTick(pager: BasePager) {
+    var value by pager.observable(0)
+}
+
+private fun SongModel.stats() = WorkStats(isCollect, isCollectNum, repostCount, musicHitNum)
+private fun MvModel.stats() = WorkStats(isCollect, collectNum, repostCount, mvHitNum)
 
 private fun JSONArray?.toStringSet(): Set<String> {
     val out = LinkedHashSet<String>()

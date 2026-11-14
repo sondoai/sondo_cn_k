@@ -36,6 +36,7 @@ import com.sondo.app.ui.list.SDRefreshListView
 import com.sondo.app.ui.nav.SDTabBar
 import com.sondo.app.ui.works.SDMusicItem
 import com.sondo.app.ui.works.SDMvItem
+import com.sondo.app.ui.works.WorksState
 import com.tencent.kuikly.core.annotations.Page
 import com.tencent.kuikly.core.base.Border
 import com.tencent.kuikly.core.base.BorderStyle
@@ -61,8 +62,9 @@ import com.tencent.kuikly.core.views.View
  * 页面参数（[SquareProfileArgs]）：`{userId: Long（也接受字符串）, type: "mv"|"music" = "mv"}`（旧的 "dance" 落到视频 Tab）。
  * 从其它页面打开请用 [SquareNav.openProfile]：栈内已有个人主页时回到它并经 [Events.SQUARE_PROFILE_RELOAD] 重载。
  *
- * NestedScrollView 的移植：两个 Tab 各自一个列表，列表头部放用户信息 + Tab 条；
- * 滚过头部后在顶部显示一份吸顶 Tab 条；切 Tab 时同步另一列表的头部位置。
+ * NestedScrollView 的移植：用户信息 + Tab 条只有一份，浮在横向翻页的 PageList 之上（左右滑只切换视频 / 歌曲列表，
+ * 头部不跟着横移）；两个列表顶部各留一段同高的透明占位，头部按当前列表的滚动量上移，收起后 Tab 条吸顶。
+ * 头部除头像、Tab 外不注册事件，拖动会透传给下面的列表。切 Tab / 开始横滑时同步另一列表的滚动位置。
  */
 @Page(Routes.profile)
 internal class SquareProfilePage : BasePager() {
@@ -79,7 +81,7 @@ internal class SquareProfilePage : BasePager() {
     internal var tabIndex by observable(0)
     /** Tab 横滑插值位置 0..1。 */
     internal var tabPage by observable(0f)
-    /** 当前 Tab 列表的头部滚动偏移（已夹到 0..headerCollapseExtent）。 */
+    /** 当前 Tab 列表的头部滚动偏移（上限夹到 headerCollapseExtent；下拉回弹时为负，头部跟着下移）。 */
     internal var headerOffset by observable(0f)
 
     private val tabOffsets = floatArrayOf(0f, 0f)
@@ -102,14 +104,6 @@ internal class SquareProfilePage : BasePager() {
     override fun created() {
         super.created()
         on(Events.SQUARE_PROFILE_RELOAD) { reload(SquareProfileArgs.fromJson(it)) }
-        on(Events.MV_LIST_CHANGED) { json ->
-            val item = json.optJSONObject("item") ?: return@on
-            updateMvList(json.optString("type", ""), MvModel.fromJson(item))
-        }
-        on(Events.MUSIC_LIST_CHANGED) { json ->
-            val item = json.optJSONObject("item") ?: return@on
-            updateMusicList(json.optString("type", ""), SongModel.fromJson(item))
-        }
         initData(SquareProfileArgs.fromJson(pagerData.params))
     }
 
@@ -198,7 +192,7 @@ internal class SquareProfilePage : BasePager() {
 
     /** 头部是两个列表共用的：切换前把目标列表的头部摆到与当前一致的位置。 */
     private fun syncOffsetTo(target: Int) {
-        val cur = headerOffset
+        val cur = headerOffset.coerceAtLeast(0f)
         val targetOffset = tabOffsets[target]
         val y = when {
             cur < SquareProfileLayout.headerCollapseExtent -> cur
@@ -212,16 +206,28 @@ internal class SquareProfilePage : BasePager() {
     internal fun onListScroll(tab: Int, offsetY: Float) {
         tabOffsets[tab] = offsetY
         if (tab != tabIndex) return
-        val clamped = offsetY.coerceIn(0f, SquareProfileLayout.headerCollapseExtent)
+        val clamped = offsetY.coerceAtMost(SquareProfileLayout.headerCollapseExtent)
         if (clamped != headerOffset) headerOffset = clamped
     }
 
+    /** 本次横滑是否已经把另一列表对齐到当前头部位置。 */
+    private var pagerSynced = false
+
     internal fun onPagerScroll(offsetX: Float) {
         if (screenWidth <= 0f) return
-        tabPage = (offsetX / screenWidth).coerceIn(0f, 1f)
+        val page = (offsetX / screenWidth).coerceIn(0f, 1f)
+        tabPage = page
+        if (page == tabIndex.toFloat()) {
+            pagerSynced = false
+        } else if (!pagerSynced) {
+            // 头部是共用的：一开始横滑就把另一列表摆到同一位置，滑动途中露出的内容才对得上
+            pagerSynced = true
+            syncOffsetTo(1 - tabIndex)
+        }
     }
 
     internal fun onPagerIndexChanged(index: Int) {
+        pagerSynced = false
         if (index == tabIndex) return
         syncOffsetTo(index)
         tabIndex = index
@@ -245,52 +251,23 @@ internal class SquareProfilePage : BasePager() {
         if (type == MvItemType.detail) {
             SquareNav.openPlayDetail(
                 this,
-                SquarePlayArgs(videoType = 0, videoList = list, initialIndex = index.coerceAtLeast(0), pageNo = 1, isFindHot = 0, isLoadMore = false),
+                SquarePlayArgs(videoType = 0, videoList = list.map { WorksState.of(this).latestVideo(it) }, initialIndex = index.coerceAtLeast(0), pageNo = 1, isFindHot = 0, isLoadMore = false),
             )
             return
         }
-        MvService.onTap(type, item.toMvModel(), list.map { it.toMvModel() })
+        val ws = WorksState.of(this)
+        MvService.onTap(type, ws.latestMv(item.toMvModel()), list.map { ws.latestMv(it.toMvModel()) })
     }
 
     internal fun onMusicItemTap(type: MusicItemType, item: SongEntity) {
         // 从歌曲详情进来时不再进详情（避免详情页套娃）
         if (type == MusicItemType.detail && this.type == "music") return
-        MusicService.onTap(type, item.toModel(), songPaging.list.map { it.toModel() })
+        val ws = WorksState.of(this)
+        MusicService.onTap(type, ws.latestSong(item.toModel()), songPaging.list.map { ws.latestSong(it.toModel()) })
     }
 
-    /** MvService 跨页同步。 */
-    private fun updateMvList(type: String, item: MvModel) {
-        val entity = item.toEntity()
-        val index = videoMvPaging.list.indexOfFirst { it.id == entity.id }
-        if (index == -1) return
-        val current = videoMvPaging.list[index]
-        val updated = when (type) {
-            "like" -> current.copy(isCollect = entity.isCollect, collectNum = entity.collectNum)
-            "share" -> current.copy(repostCount = entity.repostCount)
-            "play" -> current.copy(mvHitNum = entity.mvHitNum)
-            else -> null
-        }
-        if (updated != null) videoMvPaging.list[index] = updated
-    }
-
-    /** MusicService 跨页同步。 */
-    private fun updateMusicList(type: String, item: SongModel) {
-        val index = songPaging.list.indexOfFirst { it.id == item.id }
-        if (index == -1) return
-        val current = songPaging.list[index]
-        val updated = when (type) {
-            "like" -> current.copy(
-                isCollect = item.isCollect,
-                musicHitNum = item.musicHitNum,
-                repostCount = item.repostCount,
-                isCollectNum = item.isCollectNum,
-            )
-            "share" -> current.copy(repostCount = item.repostCount)
-            "play" -> current.copy(musicHitNum = item.musicHitNum)
-            else -> null
-        }
-        if (updated != null) songPaging.list[index] = updated
-    }
+    // MvService / MusicService 的 like / share / play 只改计数：由 WorksState 按 id 覆盖、行内局部刷新，
+    // 不再替换列表元素（替换会让整行重建、封面重新加载）。
 
     internal val progress: Float get() = SquareProfileLayout.collapseProgress(headerOffset)
 
@@ -327,24 +304,33 @@ internal class SquareProfilePage : BasePager() {
                         }
                     }
                 }
-                // 吸顶 Tab 条：头部完全收起后出现。列表会从它下面滚过，必须有底：
-                // 毛玻璃 + 面板实色，顶部圆角与收起后的面板对齐。
-                vif({ ctx.headerOffset >= SquareProfileLayout.headerCollapseExtent }) {
+                // 唯一一份头部（用户信息 + Tab 条）：不随横滑移动，按当前列表滚动量上移，收起后 Tab 条吸顶
+                View {
+                    attr {
+                        absolutePosition(top = -ctx.headerOffset, left = 0f, right = 0f)
+                    }
+                    profileInfo(ctx)
                     View {
                         attr {
-                            absolutePosition(top = 0f, left = 0f, right = 0f)
+                            height(SquareProfileLayout.tabBarPinnedHeight)
                             borderRadius(SquareProfileLayout.panelCornerRadius, SquareProfileLayout.panelCornerRadius, 0f, 0f)
                         }
-                        Blur {
-                            attr {
-                                absolutePositionAllZero()
-                                blurRadius(SquareProfileLayout.panelBlurSigma)
-                            }
-                        }
-                        View {
-                            attr {
-                                absolutePositionAllZero()
-                                backgroundColor(SquareProfileLayout.panelColorAt(ctx.tabPage))
+                        // 吸顶后列表从 Tab 条下面滚过，必须有底：毛玻璃 + 面板实色，顶部圆角与收起后的面板对齐
+                        vif({ ctx.headerOffset >= SquareProfileLayout.headerCollapseExtent }) {
+                            View {
+                                attr { absolutePositionAllZero() }
+                                Blur {
+                                    attr {
+                                        absolutePositionAllZero()
+                                        blurRadius(SquareProfileLayout.panelBlurSigma)
+                                    }
+                                }
+                                View {
+                                    attr {
+                                        absolutePositionAllZero()
+                                        backgroundColor(SquareProfileLayout.panelColorAt(ctx.tabPage))
+                                    }
+                                }
                             }
                         }
                         profileTabBar(ctx)
@@ -481,11 +467,11 @@ private fun ViewContainer<*, *>.profileTabBar(ctx: SquareProfilePage) {
     }
 }
 
-/** 头部：用户信息（随滚动淡出）+ Tab 条。 */
-private fun ViewContainer<*, *>.profileHeader(ctx: SquareProfilePage) {
+/** 用户信息（随滚动淡出），高度固定为 [SquareProfileLayout.headerCollapseExtent]。 */
+private fun ViewContainer<*, *>.profileInfo(ctx: SquareProfilePage) {
     View {
         attr {
-            width(ctx.screenWidth)
+            height(SquareProfileLayout.headerCollapseExtent)
             padding(20f, SquareProfileLayout.horizontalPadding, 10f, SquareProfileLayout.horizontalPadding)
             opacity(SquareProfileLayout.profileInfoOpacity(ctx.progress))
         }
@@ -561,7 +547,6 @@ private fun ViewContainer<*, *>.profileHeader(ctx: SquareProfilePage) {
         }
         View { attr { height(10f) } }
     }
-    profileTabBar(ctx)
 }
 
 private fun ViewContainer<*, *>.profileStat(ctx: SquareProfilePage, value: () -> Int, label: String) {
@@ -651,7 +636,10 @@ private fun ViewContainer<*, *>.profileTabList(ctx: SquareProfilePage, tab: Int)
             emptyBuilder = { profileEmpty({ st.loading }, img) }
         }
         event { onScroll { ctx.onListScroll(tab, it.offsetY) } }
-        header { profileHeader(ctx) }
+        // 头部浮在列表上方（见 content）：这里只留同高的透明占位，列表内容从头部下面开始
+        header {
+            View { attr { height(SquareProfileLayout.headerCollapseExtent + SquareProfileLayout.tabBarPinnedHeight) } }
+        }
         items {
             if (tab == 0) {
                 vfor({ ctx.videoMvPaging.list }) { item ->

@@ -45,7 +45,8 @@ class SDMvItemView : ComposeView<SDMvItemAttr, SDMvItemEvent>() {
 
     internal fun fire(type: MvItemType) {
         val h = event.tapHandler
-        if (h != null) h(type) else MvService.onTap(type, attr.item, attr.list)
+        val item = worksState.latestMv(attr.item)
+        if (h != null) h(type) else MvService.onTap(type, item, attr.list)
     }
 
     override fun body(): ViewBuilder {
@@ -81,11 +82,11 @@ class SDMvItemView : ComposeView<SDMvItemAttr, SDMvItemEvent>() {
                                 flexWrapWrap()
                                 alignItemsCenter()
                             }
-                            worksStat(AssetsImage.heandpic, item.mvHitNum.formIntText())
+                            worksStat(AssetsImage.heandpic, { ws.mvStats(item).hitNum.formIntText() })
                             worksStatDivider()
-                            worksStat(AssetsImage.like2, item.collectNum.formIntText())
+                            worksStat(AssetsImage.like2, { ws.mvStats(item).likeNum.formIntText() })
                             worksStatDivider()
-                            worksStat(AssetsImage.share2, item.repostCount.formIntText())
+                            worksStat(AssetsImage.share2, { ws.mvStats(item).shareNum.formIntText() })
                             worksStatDivider()
                             worksStat(AssetsImage.time, item.createTimeStr)
                         }
@@ -103,7 +104,7 @@ class SDMvItemView : ComposeView<SDMvItemAttr, SDMvItemEvent>() {
                                 // 抵消胶囊的 runSpacing（Dart Wrap 末行下方没有间距）
                                 marginBottom(-8f)
                             }
-                            worksChip(if (item.isCollect) AssetsImage.likeActive else AssetsImage.libLike, "like".tr, 10f) {
+                            worksLikeChip({ ws.mvStats(item).liked }, AssetsImage.likeActive, AssetsImage.libLike, 10f) {
                                 ctx.fire(MvItemType.like)
                             }
                             if (AppConstants.enableMvDanceShare) {

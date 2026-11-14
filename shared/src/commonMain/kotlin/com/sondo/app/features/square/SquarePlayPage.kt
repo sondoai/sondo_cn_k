@@ -1,5 +1,6 @@
 package com.sondo.app.features.square
 
+import com.sondo.app.ui.works.SDToggleIcon
 import com.sondo.app.base.BasePager
 import com.sondo.app.base.Events
 import com.sondo.app.base.Routes
@@ -543,7 +544,9 @@ private fun ViewContainer<*, *>.squarePlayRightActions(ctx: SquarePlayPageBase, 
                 attr { marginBottom(24f) }
                 squarePlayActionButton(
                     ctx,
-                    icon = { if (ctx.statsOf(video).isCollect) AssetsImage.likeActive2 else AssetsImage.like21 },
+                    icon = { AssetsImage.like21 },
+                    activeIcon = AssetsImage.likeActive2,
+                    isActive = { ctx.statsOf(video).isCollect },
                     num = { ctx.statsOf(video).collectNum },
                     showNum = true,
                 ) { ctx.onTapLike(index) }
@@ -579,15 +582,22 @@ private fun ViewContainer<*, *>.squarePlayActionButton(
     icon: () -> String,
     num: () -> Int,
     showNum: Boolean,
+    activeIcon: String? = null,
+    isActive: () -> Boolean = { false },
     onTap: () -> Unit,
 ) {
     View {
         attr { alignItemsCenter() }
         event { click { onTap() } }
-        Image {
-            attr {
-                size(32f, 32f)
-                src(icon().asset())
+        if (activeIcon != null) {
+            // 两态（收藏）：两张图叠放只切透明度，切换不闪
+            SDToggleIcon(32f, isActive, activeIcon, icon())
+        } else {
+            Image {
+                attr {
+                    size(32f, 32f)
+                    src(icon().asset())
+                }
             }
         }
         if (ctx.hotMode) {

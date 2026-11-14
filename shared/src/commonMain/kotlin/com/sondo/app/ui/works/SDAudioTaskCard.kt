@@ -30,6 +30,11 @@ class SDAudioTaskCardAttr : ComposeAttr() {
     var isLastItem: Boolean by observable(false)
     var isLoadingAudio: Boolean by observable(false)
     var isPlaying: Boolean by observable(false)
+    /**
+     * 实时上传进度（0..1）。列表页按上传 id 维护进度、在这里读它，进度变化只重跑进度条的 attr，
+     * 不用为了进度替换列表元素（替换会让整张卡片重建）。不设则用 item.progress。
+     */
+    var progressOf: (() -> Float)? = null
 }
 
 class SDAudioTaskCardEvent : ComposeEvent() {
@@ -53,6 +58,24 @@ class SDAudioTaskCardView : ComposeView<SDAudioTaskCardAttr, SDAudioTaskCardEven
     override fun createAttr(): SDAudioTaskCardAttr = SDAudioTaskCardAttr()
     override fun createEvent(): SDAudioTaskCardEvent = SDAudioTaskCardEvent()
 
+    internal fun liveProgress(): Float {
+        val live = attr.progressOf?.invoke()
+        return (live ?: attr.item.progress.toFloat()).coerceIn(0f, 1f)
+    }
+
+    /** 影响卡片结构 / 文案的字段（不含上传字节数）+ 本条的播放态。 */
+    internal fun structureKey(): String {
+        val item = attr.item
+        val isThis = attr.playingUploadId == item.playbackKey
+        val play = when {
+            !isThis -> 0
+            attr.isLoadingAudio -> 1
+            attr.isPlaying -> 2
+            else -> 3
+        }
+        return "${item.id}|${item.uploadId}|${item.status}|${item.fileName}|${item.fileSize}|${item.duration}|$play"
+    }
+
     override fun body(): ViewBuilder {
         val ctx = this
         return {
@@ -65,7 +88,9 @@ class SDAudioTaskCardView : ComposeView<SDAudioTaskCardAttr, SDAudioTaskCardEven
                 flexDirectionRow()
                 alignItemsCenter()
             }
-            vbind({ listOf(ctx.attr.item, ctx.attr.playingUploadId, ctx.attr.isLoadingAudio, ctx.attr.isPlaying) }) {
+            // 只在结构相关的状态变化时重建：进度（uploadedBytes）走进度条自己的 attr；
+            // 播放态只看「是不是本条」，切换播放不会让其它卡片重建
+            vbind({ ctx.structureKey() }) {
                 val item = ctx.attr.item
                 val isCompleted = item.status == AudioItemStatus.completed
                 val isFailed = item.status == AudioItemStatus.failed
@@ -130,7 +155,7 @@ class SDAudioTaskCardView : ComposeView<SDAudioTaskCardAttr, SDAudioTaskCardEven
                                 radius = 3f
                                 trackColor = Color(0x26FFFFFFL)
                                 gradientColors = listOf(SDColors.gradientStart, SDColors.gradientEnd)
-                                progress = item.progress.toFloat().coerceIn(0f, 1f)
+                                progress = ctx.liveProgress()
                             }
                         }
                         View { attr { height(6f) } }

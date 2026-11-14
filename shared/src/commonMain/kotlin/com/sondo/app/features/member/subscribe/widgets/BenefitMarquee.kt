@@ -9,6 +9,7 @@ import com.tencent.kuikly.core.base.ViewBuilder
 import com.tencent.kuikly.core.base.ViewContainer
 import com.tencent.kuikly.core.base.ViewRef
 import com.tencent.kuikly.core.base.event.layoutFrameDidChange
+import com.tencent.kuikly.core.reactive.handler.observable
 import com.tencent.kuikly.core.timer.setTimeout
 import com.tencent.kuikly.core.views.DivView
 import com.tencent.kuikly.core.views.View
@@ -37,9 +38,6 @@ class BenefitMarqueeView : ComposeView<BenefitMarqueeAttr, ComposeEvent>() {
     private var generation = 0
     private var alive = true
 
-    /** 轨道足够宽，内容不会被父宽度截断。 */
-    private val trackWidth = 10000f
-
     override fun createAttr(): BenefitMarqueeAttr = BenefitMarqueeAttr()
     override fun createEvent(): ComposeEvent = ComposeEvent()
 
@@ -49,16 +47,27 @@ class BenefitMarqueeView : ComposeView<BenefitMarqueeAttr, ComposeEvent>() {
         super.viewDestroyed()
     }
 
-    private fun startOffset(): Float = if (attr.reverse) -segmentWidth / trackWidth else 0f
+    /**
+     * 轨道宽度 = 两段内容之和（量出单段宽度后设置）。以前固定 10000 宽，Android 上约 3 万像素宽的视图
+     * 做位移动画超出纹理上限，真机上跑马灯不动；现在轨道刚好两段宽，平移 -50% 正好走完一段。
+     */
+    private var trackWidth by observable(0f)
 
-    private fun endOffset(): Float = if (attr.reverse) 0f else -segmentWidth / trackWidth
+    // 百分比位移（相对轨道自身宽度）：offsetX 形式要等布局帧回调换算，绝对定位的轨道上不可靠
+    private fun startOffset(): Float = if (attr.reverse) -0.5f else 0f
+
+    private fun endOffset(): Float = if (attr.reverse) 0f else -0.5f
+
+
 
     private fun onSegmentWidth(width: Float) {
         if (width <= 0f || kotlin.math.abs(width - segmentWidth) < 0.5f) return
         segmentWidth = width
+        trackWidth = width * 2f
         val g = ++generation
         trackRef?.view?.getViewAttr()?.transform(Translate(startOffset(), 0f))
-        setTimeout(pagerId, 16) { if (alive && g == generation) round(g) }
+        // 等新的轨道宽度布局生效后再开跑
+        setTimeout(pagerId, 50) { if (alive && g == generation) round(g) }
     }
 
     private fun round(g: Int) {
@@ -84,7 +93,8 @@ class BenefitMarqueeView : ComposeView<BenefitMarqueeAttr, ComposeEvent>() {
                 ref { ctx.trackRef = it }
                 attr {
                     absolutePosition(top = 0f, left = 0f, bottom = 0f)
-                    width(ctx.trackWidth)
+                    // 量出单段宽度前先给足宽度让内容按自然宽度排开（不被父宽度压缩），之后为两段之和
+                    width(if (ctx.trackWidth > 0f) ctx.trackWidth else 2000f)
                     flexDirectionRow()
                     alignItemsCenter()
                 }

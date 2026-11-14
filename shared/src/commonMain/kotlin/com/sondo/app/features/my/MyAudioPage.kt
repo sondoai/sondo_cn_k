@@ -61,6 +61,15 @@ internal class MyAudioPage : BasePager() {
 
     private var hasAutoPickedOnce = false
 
+    /** 上传进度单元（uploadId → 0..1）：卡片在进度条 attr 里读，进度变化不替换列表元素。 */
+    private val uploadProgress = HashMap<String, UploadProgressCell>()
+
+    internal fun progressOf(item: AudioUploadItem): Float {
+        if (item.uploadId.isEmpty()) return item.progress.toFloat()
+        val live = OssUploadService.tasks.firstOrNull { it.uploadId == item.uploadId }?.progress ?: item.progress
+        return uploadProgress.getOrPut(item.uploadId) { UploadProgressCell(this, live.toFloat()) }.value
+    }
+
     private val returnOnUpload: Boolean get() = pagerData.params.optBoolean("returnOnUpload", false)
     private val funName: String get() = pagerData.params.optString("funName", "")
 
@@ -187,12 +196,16 @@ internal class MyAudioPage : BasePager() {
             val idx = list.indexOfFirst { it.isSameRecord(serviceItem) }
             if (idx != -1) {
                 val cur = list[idx]
+                // 只有状态 / 地址 / 错误变了才替换元素（卡片结构会变）；单纯的上传进度只更新进度单元，
+                // 卡片里只重跑进度条的 attr，不整卡重建
                 if (cur.status != serviceItem.status ||
-                    cur.uploadedBytes != serviceItem.uploadedBytes ||
                     cur.fileUrl != serviceItem.fileUrl ||
                     cur.lastError != serviceItem.lastError
                 ) {
                     list[idx] = serviceItem.copy()
+                }
+                if (serviceItem.uploadId.isNotEmpty()) {
+                    uploadProgress[serviceItem.uploadId]?.value = serviceItem.progress.toFloat()
                 }
             }
         }
@@ -338,6 +351,7 @@ internal class MyAudioPage : BasePager() {
                                 SDAudioTaskCard {
                                     attr {
                                         this.item = item
+                                        progressOf = { ctx.progressOf(item) }
                                         playingUploadId = ctx.playingUploadId
                                         isFirstItem = ctx.paging.list.firstOrNull()?.isSameRecord(item) == true
                                         isLastItem = ctx.paging.list.lastOrNull()?.isSameRecord(item) == true
@@ -364,4 +378,8 @@ internal class MyAudioPage : BasePager() {
     companion object {
         const val PAGE_SIZE = 20
     }
+}
+
+private class UploadProgressCell(pager: BasePager, initial: Float) {
+    var value by pager.observable(initial)
 }

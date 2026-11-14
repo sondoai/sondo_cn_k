@@ -36,6 +36,7 @@ import com.tencent.kuikly.core.base.ColorStop
 import com.tencent.kuikly.core.base.Direction
 import com.tencent.kuikly.core.base.ViewBuilder
 import com.tencent.kuikly.core.base.ViewContainer
+import com.tencent.kuikly.core.base.event.layoutFrameDidChange
 import com.tencent.kuikly.core.directives.velse
 import com.tencent.kuikly.core.directives.vforIndex
 import com.tencent.kuikly.core.directives.vif
@@ -75,6 +76,15 @@ internal class SubscribePage : BasePager() {
 
     /** 本页发起的支付还没有结果（PayController.isInRequest）。 */
     private var isLoading by observable(false)
+
+    /** 滚动区实际高度（布局回调）：内容最小高度取它，英雄区 + 套餐贴底，与参考工程 LayoutBuilder 一致。 */
+    private var scrollViewport by observable(0f)
+
+    fun viewport(): Float = scrollViewport
+
+    fun onViewport(height: Float) {
+        if (height > 0f && kotlin.math.abs(height - scrollViewport) >= 0.5f) scrollViewport = height
+    }
 
     /** 从播放页等入口进入时，返回不触发折扣页。 */
     private var skipDiscountOnBack = false
@@ -198,7 +208,6 @@ internal class SubscribePage : BasePager() {
 
     override fun content(): ViewBuilder {
         val ctx = this
-        val viewport = ctx.screenHeight - ctx.statusBarHeight - 36f - ctx.safeBottom
         return {
             attr { backgroundColor(Color.BLACK) }
             Image {
@@ -242,12 +251,12 @@ internal class SubscribePage : BasePager() {
                             allCenter()
                         }
                         event { click { ctx.onBack() } }
+                        // 参考工程是白 20% 圆底 + Material Icons.close(16)。close_3 自带半透明圆底，
+                        // 再叠这层底就成了双层圆；这里用纯 × 的 close.png（× 占画布约 50%，18 ≈ Icons.close 16 的笔画大小）
                         Image {
                             attr {
-                                // close_3 的 × 只占画布 37.5%，Material close 占 58%：25 显示 ≈ Icons.close size 16
-                                size(25f, 25f)
-                                src(AssetsImage.close3.asset())
-                                tintColor(Color.WHITE)
+                                size(18f, 18f)
+                                src(AssetsImage.close.asset())
                                 resizeContain()
                             }
                         }
@@ -258,10 +267,13 @@ internal class SubscribePage : BasePager() {
                         flex(1f)
                         showScrollerIndicator(false)
                     }
-                    // 短屏上英雄区 + 套餐高于剩余高度时改为滚动
+                    event { layoutFrameDidChange { ctx.onViewport(it.height) } }
+                    // 内容最小高度 = 滚动区实际高度：英雄区 + 套餐贴底；短屏上内容更高时改为滚动
                     View {
                         attr {
-                            minHeight(viewport)
+                            // Scroller 内容不会自动撑满横向：显式给屏宽，标题才能真正居中（之前按内容宽度、标题靠左）
+                            width(ctx.screenWidth)
+                            minHeight(ctx.viewport())
                             justifyContentFlexEnd()
                         }
                         heroSection(ctx)
@@ -308,9 +320,13 @@ private fun planCreditsSub(item: GoodsModel): String {
 
 private fun ViewContainer<*, *>.heroSection(ctx: SubscribePage) {
     View {
-        attr { padding(0f, 20f, 0f, 20f) }
+        attr {
+            alignSelfStretch()
+            padding(0f, 20f, 0f, 20f)
+        }
         Text {
             attr {
+                alignSelfStretch()
                 text("subscribe_creative_journey".tr)
                 fontSize(24f)
                 lineHeight(38f)
@@ -325,6 +341,7 @@ private fun ViewContainer<*, *>.heroSection(ctx: SubscribePage) {
     // 权益跑马灯全宽；credits 文案随套餐变，只刷新那一段文字，不重启动画
     BenefitMarquee {
         attr {
+            alignSelfStretch()
             height(38f)
             velocity = MARQUEE_VELOCITY
             reverse = false
@@ -340,6 +357,7 @@ private fun ViewContainer<*, *>.heroSection(ctx: SubscribePage) {
     VGap(20f)
     BenefitMarquee {
         attr {
+            alignSelfStretch()
             height(38f)
             velocity = MARQUEE_VELOCITY
             reverse = true

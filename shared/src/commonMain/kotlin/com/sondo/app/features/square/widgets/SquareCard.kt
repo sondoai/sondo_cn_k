@@ -6,6 +6,10 @@ import com.sondo.app.core.utils.formIntText
 import com.sondo.app.data.models.VideoContentEntity
 import com.sondo.app.ui.atoms.SDImage
 import com.sondo.app.ui.atoms.SDShimmer
+import com.sondo.app.ui.works.WorksState
+import com.sondo.app.ui.works.SDToggleIcon
+import com.sondo.app.base.BasePager
+import com.tencent.kuikly.core.directives.vif
 import com.tencent.kuikly.core.base.Color
 import com.tencent.kuikly.core.base.ColorStop
 import com.tencent.kuikly.core.base.Direction
@@ -26,6 +30,8 @@ internal fun ViewContainer<*, *>.squareCard(
     onTapLike: (() -> Unit)? = null,
 ) {
     val isVertical = video.imageComp == "9:16"
+    // 收藏态 / 数由页面级 WorksState 按 id 覆盖：变化时只重跑图标和数字的 attr，卡片不重建
+    val ws = WorksState.of(getPager() as BasePager)
     View {
         attr { width(width) }
         event { click { onTap() } }
@@ -100,18 +106,13 @@ internal fun ViewContainer<*, *>.squareCard(
                         alignItemsCenter()
                     }
                     event { click { onTapLike?.invoke() } }
-                    Image {
-                        attr {
-                            size(16f, 16f)
-                            src((if (video.isCollect) AssetsImage.likeActive else AssetsImage.like).asset())
-                            if (!video.isCollect) tintColor(Color(255, 255, 255, 0.5f))
-                        }
-                    }
+                    // 未收藏的图标着色、已收藏不着色：两张图叠放只切透明度，切换不闪
+                    SDToggleIcon(16f, { ws.videoStats(video).liked }, AssetsImage.likeActive, AssetsImage.like, Color(255, 255, 255, 0.5f))
                     View { attr { width(4f) } }
-                    if (video.collectNum > 0) {
+                    vif({ ws.videoStats(video).likeNum > 0 }) {
                         Text {
                             attr {
-                                text(video.collectNum.formIntText())
+                                text(ws.videoStats(video).likeNum.formIntText())
                                 fontSize(12f)
                                 color(Color(255, 255, 255, 0.5f))
                                 fontFamily("Poppins-Medium")

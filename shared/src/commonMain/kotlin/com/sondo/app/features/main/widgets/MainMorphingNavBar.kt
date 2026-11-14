@@ -38,6 +38,7 @@ import com.tencent.kuikly.core.timer.setTimeout
 import com.tencent.kuikly.core.views.Blur
 import com.tencent.kuikly.core.views.Image
 import com.tencent.kuikly.core.views.View
+import com.tencent.kuikly.core.timer.clearTimeout
 
 /** Kuikly 的 Blur 半径上限（Dart sigma 15 取上限）。 */
 private const val GLASS_BLUR = 12.5f
@@ -48,6 +49,9 @@ class MainMorphingNavBarAttr : ComposeAttr() {
 
     /** 导航栏左右内边距之内的总宽度（屏宽 - 40）。 */
     var barWidth: Float = 0f
+
+    /** 所在根页面是否可见：不可见（被创作页等盖住）时胶囊不做出现 / 消失切换。 */
+    var pageVisible: Boolean by observable(true)
 }
 
 class MainMorphingNavBarEvent : ComposeEvent() {
@@ -78,6 +82,8 @@ class MainMorphingNavBarView : ComposeView<MainMorphingNavBarAttr, MainMorphingN
     private var songStatus by observable(0)
     private var hasSong by observable(false)
     private var mainTrackActive by observable(false)
+    /** 主音轨被试听临时占用（创作页选曲 / 裁剪试听），试听结束会恢复：期间胶囊保留。 */
+    private var mainTrackSuspended = false
     internal var isPlaying by observable(false)
     internal var progress by observable(0f)
 
@@ -106,7 +112,16 @@ class MainMorphingNavBarView : ComposeView<MainMorphingNavBarAttr, MainMorphingN
 
     internal val selectedTab: MainNavTab get() = attr.selected
 
-    val hasPlayer: Boolean get() = hasSong && songStatus == 3 && mainTrackActive
+    val hasPlayer: Boolean get() = hasSong && songStatus == 3 && (mainTrackActive || mainTrackSuspended)
+
+    /**
+     * 实际是否展示播放器胶囊（布局用它，不直接用 [hasPlayer]）。
+     * 播放器状态在页面切换时可能短暂报「没有主音轨」（真机上从 MV 创作页返回时出现过），直接跟随会切到纯导航布局、
+     * 封面球被销毁，状态恢复后再重建、封面重新加载 —— 看起来就是胶囊先消失、封面再出现。
+     * 所以：出现立即生效；消失要等根页面可见、且「无播放器」持续 [HIDE_GRACE_MS] 才切换。
+     */
+    internal var showPlayer by observable(false)
+    private var hideTimer: String? = null
 
     override fun createAttr(): MainMorphingNavBarAttr = MainMorphingNavBarAttr()
     override fun createEvent(): MainMorphingNavBarEvent = MainMorphingNavBarEvent()
@@ -114,6 +129,8 @@ class MainMorphingNavBarView : ComposeView<MainMorphingNavBarAttr, MainMorphingN
     override fun created() {
         super.created()
         applyState(PlayerService.snapshot())
+        showPlayer = hasPlayer
+        bindValueChange({ attr.pageVisible }) { syncShowPlayer() }
         val notify = getPager().acquireModule<NotifyModule>(NotifyModule.MODULE_NAME)
         notifyRefs.add(Events.PLAYER_STATE to notify.addNotify(Events.PLAYER_STATE) { if (alive && it != null) applyState(it) })
         notifyRefs.add(
@@ -127,6 +144,8 @@ class MainMorphingNavBarView : ComposeView<MainMorphingNavBarAttr, MainMorphingN
     override fun viewDestroyed() {
         alive = false
         squeezeRunning = false
+        cancelHide()
+        unbindAllValueChange()
         val notify = getPager().acquireModule<NotifyModule>(NotifyModule.MODULE_NAME)
         notifyRefs.forEach { (name, ref) -> notify.removeNotify(name, ref) }
         notifyRefs.clear()
@@ -145,20 +164,49 @@ class MainMorphingNavBarView : ComposeView<MainMorphingNavBarAttr, MainMorphingN
             songStatus = 0
         }
         mainTrackActive = json.jBool("isMainTrackActive", false)
-        isPlaying = json.jBool("isPlaying", false)
+        mainTrackSuspended = json.jBool("isMainTrackSuspended", false)
+        // 试听占用播放器时 isPlaying 是试听的状态，胶囊只反映主音轨
+        isPlaying = mainTrackActive && json.jBool("isPlaying", false)
         progress = json.jDbl("progress", 0.0).toFloat()
-        // didUpdateWidget：没有播放器时复位挤压；换歌时复位拖动
+        // didUpdateWidget：换歌时复位拖动；没有播放器时的复位放在胶囊真正隐藏时（见 syncShowPlayer）
         val id: Long? = if (hasPlayer) songId else null
-        val songChanged = lastSongId != null && id != lastSongId
-        if (!hasPlayer) {
-            resetSqueeze()
-            dragOffset = 0f
-            totalDragDelta = 0f
-        } else if (songChanged) {
+        val songChanged = lastSongId != null && id != null && id != lastSongId
+        if (songChanged) {
             dragOffset = 0f
             totalDragDelta = 0f
         }
-        lastSongId = id
+        if (id != null) lastSongId = id
+        syncShowPlayer()
+    }
+
+    private fun syncShowPlayer() {
+        if (!alive) return
+        if (hasPlayer) {
+            cancelHide()
+            if (!showPlayer) showPlayer = true
+            return
+        }
+        if (!showPlayer) return
+        // 根页面不可见时不切换，回到前台后再按宽限期判断
+        if (!attr.pageVisible) {
+            cancelHide()
+            return
+        }
+        if (hideTimer != null) return
+        hideTimer = setTimeout(pagerId, HIDE_GRACE_MS) {
+            hideTimer = null
+            if (!alive || hasPlayer || !attr.pageVisible) return@setTimeout
+            resetSqueeze()
+            dragOffset = 0f
+            totalDragDelta = 0f
+            lastSongId = null
+            showPlayer = false
+        }
+    }
+
+    private fun cancelHide() {
+        hideTimer?.let { clearTimeout(it) }
+        hideTimer = null
     }
 
     private fun resetSqueeze() {
@@ -204,11 +252,11 @@ class MainMorphingNavBarView : ComposeView<MainMorphingNavBarAttr, MainMorphingN
     }
 
     internal fun togglePlayerExpanded() {
-        if (!hasPlayer) return
+        if (!showPlayer) return
         if (squeezeRaw >= 0.5f) collapsePlayerExpanded() else animateSqueeze(1f)
     }
 
-    private val isExpandedState: Boolean get() = hasPlayer && squeeze >= MainNavColors.squeezeContentFadeThreshold
+    private val isExpandedState: Boolean get() = showPlayer && squeeze >= MainNavColors.squeezeContentFadeThreshold
 
     internal fun onPan(state: String, x: Float) {
         when (state) {
@@ -286,7 +334,7 @@ class MainMorphingNavBarView : ComposeView<MainMorphingNavBarAttr, MainMorphingN
             attr {
                 padding(MainNavColors.verticalPadding, MainNavColors.horizontalPadding, MainNavColors.verticalPadding, MainNavColors.horizontalPadding)
             }
-            vif({ !ctx.hasPlayer }) {
+            vif({ !ctx.showPlayer }) {
                 // 纯导航
                 glassCard(ctx, width = { ctx.total }, radius = { 100f }, padding = { MainNavColors.innerPadding }) {
                     navIconRow(ctx) { ctx.total - MainNavColors.innerPadding * 2f }
@@ -304,6 +352,11 @@ class MainMorphingNavBarView : ComposeView<MainMorphingNavBarAttr, MainMorphingN
                 }
             }
         }
+    }
+
+    private companion object {
+        /** 「无播放器」持续多久才收起胶囊（毫秒）。 */
+        const val HIDE_GRACE_MS = 600
     }
 }
 

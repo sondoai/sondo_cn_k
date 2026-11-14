@@ -47,7 +47,7 @@ class SDAppVideoProgressBarEvent : ComposeEvent() {
 /**
  * Dart `AppVideoProgressBar`：绑定控制器的三层进度条（底 白30% / 已缓冲 白50% / 已播放 白），
  * 点按或横向拖动：按下即暂停（记住之前是否在播），轨道加粗，上方气泡显示 `m:ss / m:ss`，
- * 松手只 seek 一次，之前在播则恢复播放；缓冲中（未拖动）叠一条 1.5 高的强调色不确定进度线。
+ * 松手只 seek 一次，之前在播则恢复播放；缓冲中（未拖动）在同一条轨道里显示强调色扫光（[SDSeekBar.loading]）。
  *
  * 拖动与 iOS 侧滑 / 外层翻页的手势优先级由 Kuikly pan 手势处理（按下即占用），
  * Android 系统边缘返回的排除区域不移植（原生未提供对应能力）。
@@ -55,15 +55,9 @@ class SDAppVideoProgressBarEvent : ComposeEvent() {
 class SDAppVideoProgressBarView : ComposeView<SDAppVideoProgressBarAttr, SDAppVideoProgressBarEvent>() {
     private var wasPlaying = false
     private var scrubbing by observable(false)
-    private var sweep by observable(false)
 
     override fun createAttr(): SDAppVideoProgressBarAttr = SDAppVideoProgressBarAttr()
     override fun createEvent(): SDAppVideoProgressBarEvent = SDAppVideoProgressBarEvent()
-
-    override fun viewDidLoad() {
-        super.viewDidLoad()
-        setTimeout(pagerId, 16) { sweep = true }
-    }
 
     private fun startScrub() {
         val c = attr.controller ?: return
@@ -114,33 +108,13 @@ class SDAppVideoProgressBarView : ComposeView<SDAppVideoProgressBarAttr, SDAppVi
                     duration = (c?.durationMs ?: 0L).toFloat()
                     position = (c?.positionMs ?: 0L).toFloat()
                     buffered = (c?.bufferedMs ?: 0L).toFloat()
+                    // 缓冲中（未拖动）：同一条轨道里扫光，宽高位置与进度完全一致
+                    loading = !ctx.scrubbing && c != null && c.playIntent && c.isBuffering && !c.isPlaying
+                    loadingColor = a.bufferingColor
                 }
                 event {
                     onSeekStart { ctx.startScrub() }
                     onSeekEnd { ms -> ctx.endScrub(ms) }
-                }
-            }
-            // 缓冲中的不确定进度线
-            vif({
-                val c = a.controller
-                !ctx.scrubbing && c != null && c.playIntent && c.isBuffering && !c.isPlaying
-            }) {
-                View {
-                    attr {
-                        absolutePosition(left = a.paddingH, right = a.paddingH)
-                        height(1.5f)
-                        overflow(true)
-                        touchEnable(false)
-                    }
-                    View {
-                        attr {
-                            absolutePosition(top = 0f, bottom = 0f, left = 0f)
-                            width(80f)
-                            backgroundColor(a.bufferingColor)
-                            transform(Translate(if (ctx.sweep) 6f else -1f, 0f))
-                            animate(Animation.linear(1.2f).repeatForever(true), ctx.sweep)
-                        }
-                    }
                 }
             }
         }

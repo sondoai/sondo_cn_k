@@ -1,5 +1,6 @@
 package com.sondo.app.ui.works
 
+import com.sondo.app.core.i18n.tr
 import com.sondo.app.ui.SDColors
 import com.sondo.app.ui.atoms.SDLoading
 import com.sondo.app.ui.atoms.SDLoadingType
@@ -24,6 +25,35 @@ internal fun ViewContainer<*, *>.worksChip(
     tint: Color? = null,
     marginRight: Float = 8f,
     onTap: () -> Unit,
+) = worksChipBase(text, radius, marginRight, onTap) {
+    Image {
+        attr {
+            size(18f, 18f)
+            src(ImageUri.commonAssets(icon))
+            resizeContain()
+            if (tint != null) tintColor(tint)
+        }
+    }
+}
+
+/** 收藏胶囊：图标两态叠放只切透明度（见 [SDToggleIcon]），状态变化不重建胶囊、图标不闪。 */
+internal fun ViewContainer<*, *>.worksLikeChip(
+    liked: () -> Boolean,
+    onIcon: String,
+    offIcon: String,
+    radius: Float,
+    marginRight: Float = 8f,
+    onTap: () -> Unit,
+) = worksChipBase("like".tr, radius, marginRight, onTap) {
+    SDToggleIcon(18f, liked, onIcon, offIcon)
+}
+
+private fun ViewContainer<*, *>.worksChipBase(
+    text: String,
+    radius: Float,
+    marginRight: Float,
+    onTap: () -> Unit,
+    icon: ViewContainer<*, *>.() -> Unit,
 ) {
     View {
         attr {
@@ -39,14 +69,7 @@ internal fun ViewContainer<*, *>.worksChip(
             justifyContentCenter()
         }
         event { click { onTap() } }
-        Image {
-            attr {
-                size(18f, 18f)
-                src(ImageUri.commonAssets(icon))
-                resizeContain()
-                if (tint != null) tintColor(tint)
-            }
-        }
+        icon()
         Text {
             attr {
                 marginLeft(8f)
@@ -77,7 +100,11 @@ internal fun ViewContainer<*, *>.worksChipLoading(radius: Float, marginRight: Fl
 }
 
 /** 统计项：图标 16 + 4 + 文字 12 白 50%。 */
-internal fun ViewContainer<*, *>.worksStat(icon: String, count: String, iconSize: Float = 16f, color: Color = SDColors.white50) {
+internal fun ViewContainer<*, *>.worksStat(icon: String, count: String, iconSize: Float = 16f, color: Color = SDColors.white50) =
+    worksStat(icon, { count }, iconSize, color)
+
+/** 数字随响应式数据变化的统计项（收藏 / 分享 / 播放数）：只重跑文字的 attr。 */
+internal fun ViewContainer<*, *>.worksStat(icon: String, count: () -> String, iconSize: Float = 16f, color: Color = SDColors.white50) {
     View {
         attr {
             flexDirectionRow()
@@ -93,7 +120,7 @@ internal fun ViewContainer<*, *>.worksStat(icon: String, count: String, iconSize
         Text {
             attr {
                 marginLeft(4f)
-                text(count)
+                text(count())
                 fontSize(12f)
                 color(color)
                 lines(1)
@@ -141,6 +168,40 @@ internal fun ViewContainer<*, *>.worksStatusColumn(icon: String?, text: String) 
                 color(overlayTextColor)
                 fontWeight600()
                 textAlignCenter()
+            }
+        }
+    }
+}
+
+/**
+ * 两态图标（收藏 / 未收藏）：两张图都先建好叠在一起，状态变化只切透明度。
+ * 直接换 `src` 在 Android 上要重新解码图片，切换瞬间会空白一帧；这样切换没有任何闪烁。
+ * [offTint] 只作用在「关」的那张图上。
+ */
+fun ViewContainer<*, *>.SDToggleIcon(
+    size: Float,
+    on: () -> Boolean,
+    onIcon: String,
+    offIcon: String,
+    offTint: Color? = null,
+) {
+    View {
+        attr { size(size, size) }
+        Image {
+            attr {
+                absolutePositionAllZero()
+                src(ImageUri.commonAssets(offIcon))
+                resizeContain()
+                if (offTint != null) tintColor(offTint)
+                opacity(if (on()) 0f else 1f)
+            }
+        }
+        Image {
+            attr {
+                absolutePositionAllZero()
+                src(ImageUri.commonAssets(onIcon))
+                resizeContain()
+                opacity(if (on()) 1f else 0f)
             }
         }
     }

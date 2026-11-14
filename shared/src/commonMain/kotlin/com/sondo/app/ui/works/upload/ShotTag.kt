@@ -281,11 +281,15 @@ internal class DialogShotTagView : ComposeView<DialogShotTagAttr, ComposeEvent>(
                         attr {
                             marginTop(12f)
                             height(440f)
-                            padding(0f, 20f, 0f, 20f)
                             showScrollerIndicator(false)
                         }
+                        // Dart Wrap(spacing: 10, runSpacing: 10)：间距只在卡片之间。这里每张卡右边都带 10，
+                        // 换行容器多给 10 宽（屏宽 - 左右 20 + 10）抵掉行尾那份，一行正好 3 张；
+                        // 宽度要显式给：Scroller 内容不会自动撑满横向
                         View {
                             attr {
+                                marginLeft(20f)
+                                width(screenW - 40f + 10f)
                                 flexDirectionRow()
                                 flexWrapWrap()
                             }

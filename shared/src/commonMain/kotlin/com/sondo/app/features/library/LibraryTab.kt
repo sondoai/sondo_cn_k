@@ -37,6 +37,7 @@ import com.sondo.app.ui.nav.SDTabBar
 import com.sondo.app.ui.nav.SDTabIndicator
 import com.sondo.app.ui.works.SDMusicItem
 import com.sondo.app.ui.works.SDMvItem
+import com.sondo.app.ui.works.worksState
 import com.tencent.kuikly.core.base.Color
 import com.tencent.kuikly.core.base.ComposeAttr
 import com.tencent.kuikly.core.base.ComposeEvent
@@ -330,7 +331,10 @@ class LibraryTabView : ComposeView<LibraryTabAttr, ComposeEvent>() {
             val id = patch.optLong("id", 0L)
             val index = myMvPaging.list.indexOfFirst { it.id == id }
             if (index == -1) continue
-            myMvPaging.list[index] = MvService.applyTaskPatch(myMvPaging.list[index], patch)
+            // 只在内容真的变了时替换：替换会让 vfor 重建整行（封面重新加载）
+            val cur = myMvPaging.list[index]
+            val next = MvService.applyTaskPatch(cur, patch)
+            if (next != cur) myMvPaging.list[index] = next
         }
     }
 
@@ -341,7 +345,9 @@ class LibraryTabView : ComposeView<LibraryTabAttr, ComposeEvent>() {
             val id = patch.optLong("id", 0L)
             val index = myMusicPaging.list.indexOfFirst { it.id == id }
             if (index == -1) continue
-            myMusicPaging.list[index] = MusicService.applyProgress(myMusicPaging.list[index], patch)
+            val cur = myMusicPaging.list[index]
+            val next = MusicService.applyProgress(cur, patch)
+            if (next != cur) myMusicPaging.list[index] = next
         }
     }
 
@@ -352,9 +358,7 @@ class LibraryTabView : ComposeView<LibraryTabAttr, ComposeEvent>() {
         if (index != -1) {
             val data = myList[index]
             when (type) {
-                "like" -> myList[index] = data.copy(isCollect = item.isCollect, collectNum = item.collectNum)
-                "share" -> myList[index] = data.copy(repostCount = item.repostCount)
-                "play" -> myList[index] = data.copy(mvHitNum = item.mvHitNum)
+                // like / share / play 的计数由 WorksState 按 id 覆盖，行内局部刷新，不替换元素（替换会整行重建）
                 "delete" -> myList.removeAt(index)
                 "publish" -> myList[index] = data.copy(mvPublish = item.mvPublish)
             }
@@ -372,8 +376,6 @@ class LibraryTabView : ComposeView<LibraryTabAttr, ComposeEvent>() {
                     if (likeList.isEmpty()) return
                     mvLikePaging.refresh()
                 }
-                "share" -> likeList[likeIndex] = likeList[likeIndex].copy(repostCount = item.repostCount)
-                "play" -> likeList[likeIndex] = likeList[likeIndex].copy(mvHitNum = item.mvHitNum)
             }
         }
     }
@@ -385,7 +387,7 @@ class LibraryTabView : ComposeView<LibraryTabAttr, ComposeEvent>() {
         if (myIndex != -1) {
             val currentSong = myList[myIndex]
             when (type) {
-                "like" -> myList[myIndex] = currentSong.copy(isCollect = item.isCollect, isCollectNum = item.isCollectNum)
+                // like / share 的计数由 WorksState 按 id 覆盖，行内局部刷新
                 "edit" -> myList[myIndex] = currentSong.copy(
                     musicCoverUrl = item.musicCoverUrl,
                     musicTitle = item.musicTitle,
@@ -399,28 +401,22 @@ class LibraryTabView : ComposeView<LibraryTabAttr, ComposeEvent>() {
         }
         val likeList = likedMusicPaging.list
         if (type == "like") {
-            if (musicTabIndex == 1) {
-                likedMusicPaging.refresh()
-                return
-            }
-            if (likeList.isEmpty()) return
+            // 参考工程在收藏 Tab 上直接整页刷新；这里改成局部：取消收藏移除该行，新收藏（列表里没有）才刷新补进来
             val index = likeList.indexOfFirst { it.id == item.id }
             if (index != -1) {
                 if (!item.isCollect) likeList.removeAt(index)
-            } else {
+            } else if (item.isCollect && (likeList.isNotEmpty() || musicTabIndex == 1)) {
                 likedMusicPaging.refresh()
             }
-        } else if (type == "share") {
-            // 参考工程这里按 id 比较写成了自比较（总命中第一条），按 id 修正
-            val index = likeList.indexOfFirst { it.id == item.id }
-            if (index != -1) likeList[index] = likeList[index].copy(repostCount = item.repostCount)
         }
     }
 
     // ------------------------------------------------------------------ 交互
 
-    internal fun onMvLikeTap(type: MvItemType, item: MvModel) {
-        val list = mvLikePaging.list.toList()
+    internal fun onMvLikeTap(type: MvItemType, rawItem: MvModel) {
+        val ws = worksState
+        val item = ws.latestMv(rawItem)
+        val list = mvLikePaging.list.map { ws.latestMv(it) }
         if (type == MvItemType.detail) {
             val arr = JSONArray()
             list.forEach { arr.put(it.toEntity().toJson()) }

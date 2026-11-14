@@ -205,7 +205,7 @@ class SDSeekBarAttr : ComposeAttr() {
     var position: Float by observable(0f)
     /** 已缓冲位置（毫秒）；<= 0 不画缓冲条 */
     var buffered: Float by observable(0f)
-    /** 触摸区高度（Dart 固定 30，轨道贴底） */
+    /** 触摸区高度（Dart 固定 30；Material Slider 撑满这 30，轨道在其中垂直居中） */
     var touchHeight: Float = 30f
     /** 左右内边距（Dart `padding` 的水平部分） */
     var paddingH: Float = 0f
@@ -225,10 +225,20 @@ class SDSeekBarAttr : ComposeAttr() {
      * true = Dart `AppVideoProgressBar._ScrubTimeBubble`（黑 60%、圆角 8、10/4、13 w600、m:ss，底边距触摸区顶部 8）。
      */
     var appVideoTooltip: Boolean = false
-    /** 轨道在触摸区内的位置：true 贴底（视频），false 居中（音乐播放器） */
-    var alignBottom: Boolean = true
+    /**
+     * 轨道在触摸区内的位置：false 居中（默认，与 Dart `VideoProgressWidget` 一致：轨道中心距底 15），true 贴底。
+     * 以前默认贴底，视频进度条比旧版低了约 13。
+     */
+    var alignBottom: Boolean = false
     /** 拖动过程中 onSeek 的节流间隔（毫秒） */
     var seekThrottleMs: Int = 80
+    /**
+     * 加载中：在**同一条轨道**里循环扫光（不定进度），时长为 0 时也显示轨道。
+     * 视频加载条和播放进度条共用这条轨道：宽高、位置完全一致，加载结束直接在原地显示真实进度，不换条。
+     */
+    var loading: Boolean by observable(false)
+    /** 加载扫光颜色 */
+    var loadingColor: Color by observable(SDColors.white50)
 }
 
 class SDSeekBarEvent : ComposeEvent() {
@@ -288,9 +298,17 @@ class SDSeekBarView : ComposeView<SDSeekBarAttr, SDSeekBarEvent>() {
 
     private val displayRatio: Float
         get() {
-            val d = if (attr.duration > 0f) attr.duration else 1f
+            val d = attr.duration
+            if (d <= 0f) return 0f
             val p = if (isDragging) dragValue else attr.position
             return (p / d).coerceIn(0f, 1f)
+        }
+
+    private val bufferedRatio: Float
+        get() {
+            val d = attr.duration
+            if (d <= 0f) return 0f
+            return (attr.buffered / d).coerceIn(0f, 1f)
         }
 
     override fun body(): ViewBuilder {
@@ -300,8 +318,11 @@ class SDSeekBarView : ComposeView<SDSeekBarAttr, SDSeekBarEvent>() {
                 height(ctx.attr.touchHeight)
                 padding(0f, ctx.attr.paddingH, 0f, ctx.attr.paddingH)
                 if (ctx.attr.alignBottom) justifyContentFlexEnd() else justifyContentCenter()
-                opacity(if (ctx.attr.duration > 0f) 1f else 0f)
-                animate(Animation.linear(0.3f), ctx.attr.duration > 0f)
+                val visible = ctx.attr.duration > 0f || ctx.attr.loading
+                opacity(if (visible) 1f else 0f)
+                animate(Animation.linear(0.3f), visible)
+                // 没有时长（加载中 / 隐藏）时不吃触摸，点按落到下面的播放器上
+                touchEnable(ctx.attr.duration > 0f)
             }
             event {
                 pan { p ->
@@ -352,10 +373,21 @@ class SDSeekBarView : ComposeView<SDSeekBarAttr, SDSeekBarEvent>() {
                 View {
                     attr {
                         absolutePosition(top = 0f, left = 0f, bottom = 0f)
-                        val d = if (ctx.attr.duration > 0f) ctx.attr.duration else 1f
-                        width(ctx.trackWidth * (ctx.attr.buffered / d).coerceIn(0f, 1f))
+                        width(ctx.trackWidth * ctx.bufferedRatio)
                         borderRadius(4f)
                         backgroundColor(ctx.attr.bufferedColor)
+                    }
+                }
+                // 加载扫光：裁在轨道内（单独一层裁剪，拖动时的滑块不受影响）
+                vif({ ctx.attr.loading }) {
+                    View {
+                        attr {
+                            absolutePositionAllZero()
+                            borderRadius(4f)
+                            overflow(true)
+                            touchEnable(false)
+                        }
+                        SDTrackSweep { attr { color = ctx.attr.loadingColor } }
                     }
                 }
                 // 已播放
@@ -429,6 +461,43 @@ class SDSeekBarView : ComposeView<SDSeekBarAttr, SDSeekBarEvent>() {
 
 fun ViewContainer<*, *>.SDSeekBar(init: SDSeekBarView.() -> Unit) {
     addChild(SDSeekBarView(), init)
+}
+
+class SDTrackSweepAttr : ComposeAttr() {
+    var color: Color by observable(SDColors.white50)
+}
+
+/** 轨道内的不定进度扫光：整条宽度从左侧外滑到正好填满，一轮 800ms（同 Dart `CoverLoadingBar`）。 */
+class SDTrackSweepView : ComposeView<SDTrackSweepAttr, ComposeEvent>() {
+    private var running by observable(false)
+
+    override fun createAttr(): SDTrackSweepAttr = SDTrackSweepAttr()
+    override fun createEvent(): ComposeEvent = ComposeEvent()
+
+    override fun viewDidLoad() {
+        super.viewDidLoad()
+        setTimeout(pagerId, 16) { running = true }
+    }
+
+    override fun body(): ViewBuilder {
+        val ctx = this
+        return {
+            attr { absolutePositionAllZero() }
+            View {
+                attr {
+                    absolutePositionAllZero()
+                    borderRadius(4f)
+                    backgroundColor(ctx.attr.color)
+                    transform(Translate(if (ctx.running) 0f else -1f, 0f))
+                    animate(Animation.linear(0.8f).repeatForever(true), ctx.running)
+                }
+            }
+        }
+    }
+}
+
+internal fun ViewContainer<*, *>.SDTrackSweep(init: SDTrackSweepView.() -> Unit) {
+    addChild(SDTrackSweepView(), init)
 }
 
 /**

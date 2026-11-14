@@ -5,7 +5,6 @@ import com.sondo.app.core.i18n.tr
 import com.sondo.app.data.models.SquareModel
 import com.sondo.app.service.VideoCacheService
 import com.sondo.app.ui.SDFit
-import com.sondo.app.ui.atoms.SDCoverLoadingBar
 import com.sondo.app.ui.atoms.SDImage
 import com.sondo.app.ui.atoms.SDLoading
 import com.sondo.app.ui.atoms.SDSeekBar
@@ -281,18 +280,6 @@ class SDListMvVideoPlayerView : ComposeView<SDListMvVideoPlayerAttr, SDListMvVid
                                     }
                                 }
                             }
-                            // 加载条和播放进度条放在同一位置：轨道底边与进度条轨道底边对齐（加载条自带上下 2 的内边距），
-                            // 封面淡出时加载条淡出、进度条在原地淡入。
-                            if (a.showProgress) {
-                                SDCoverLoadingBar {
-                                    attr {
-                                        absolutePosition(left = 0f, right = 0f, bottom = -2f)
-                                        active = !ctx.coverHidden
-                                        opacity(if (ctx.coverHidden) 0f else 1f)
-                                        animate(Animation.easeOut(0.35f), ctx.coverHidden)
-                                    }
-                                }
-                            }
                         }
                     }
                     // 叠加层
@@ -329,12 +316,14 @@ class SDListMvVideoPlayerView : ComposeView<SDListMvVideoPlayerAttr, SDListMvVid
                             }
                         }
                     }
-                    // 进度条可拖动，单独放在不禁用触摸的层
+                    // 加载条与播放进度条是同一个 SDSeekBar（同一条轨道，宽高、位置完全一致）：
+                    // 封面盖着时轨道里扫光表示加载，封面淡出后同一条轨道直接显示真实进度，不换条、不跳动。
+                    // 没有时长时进度条不吃触摸（见 SDSeekBar），点按照常落到播放器上。
                     if (a.showProgress) {
-                        vif({ ctx.controller != null && a.isCurrentPage && !a.isScrolling }) {
-                            View {
-                                attr { absolutePosition(left = 0f, right = 0f, bottom = 0f) }
-                                if (a.showAiLabel) {
+                        View {
+                            attr { absolutePosition(left = 0f, right = 0f, bottom = 0f) }
+                            if (a.showAiLabel) {
+                                vif({ ctx.controller != null && a.isCurrentPage && !a.isScrolling }) {
                                     Text {
                                         attr {
                                             marginLeft(12f)
@@ -347,18 +336,18 @@ class SDListMvVideoPlayerView : ComposeView<SDListMvVideoPlayerAttr, SDListMvVid
                                         }
                                     }
                                 }
-                                SDSeekBar {
-                                    attr {
-                                        paddingH = 10f
-                                        // 有封面时加载阶段由同位置的加载条表示，封面淡出后进度条才出现（时长为 0 时自身隐藏），
-                                        // 两条不同时出现
-                                        val loading = a.mv.cover.isNotEmpty() && !ctx.coverHidden
-                                        duration = if (loading) 0f else (ctx.controller?.durationMs ?: 0L).toFloat()
-                                        position = (ctx.controller?.positionMs ?: 0L).toFloat()
-                                        buffered = 0f
-                                    }
-                                    event { onSeekEnd { ms -> ctx.controller?.seekTo(ms.toLong()) } }
+                            }
+                            SDSeekBar {
+                                attr {
+                                    paddingH = 10f
+                                    val loading = a.mv.cover.isNotEmpty() && !ctx.coverHidden
+                                    val seekable = ctx.controller != null && a.isCurrentPage && !a.isScrolling
+                                    this.loading = loading
+                                    duration = if (loading || !seekable) 0f else (ctx.controller?.durationMs ?: 0L).toFloat()
+                                    position = (ctx.controller?.positionMs ?: 0L).toFloat()
+                                    buffered = 0f
                                 }
+                                event { onSeekEnd { ms -> ctx.controller?.seekTo(ms.toLong()) } }
                             }
                         }
                     }

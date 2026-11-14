@@ -390,14 +390,35 @@ object MvService {
         EmailHelper.sendEmail(content = str, userId = Account.userId)
     }
 
+    /** 正在提交收藏请求的 MV：连点只算一次。 */
+    private val likingMvs = HashSet<Long>()
+
+    /** 本次会话里收藏操作后的最新状态（同 MusicService）：调用方条目可能是旧值，取反以这里为准。 */
+    private val likeStates = HashMap<Long, Pair<Boolean, Int>>()
+
     /** 收藏：先乐观更新，失败回滚。 */
     private suspend fun onCollectMv(ui: UiCtx, item: MvModel) {
         if (!Account.ensureLogin(ui.pager)) return
-        val collectNum = if (item.isCollect) item.collectNum - 1 else item.collectNum + 1
-        val newItem = item.copy(isCollect = !item.isCollect, collectNum = collectNum)
-        refreshMv("like", newItem)
-        val res = WorksApi.collectMv(item.id, if (item.isCollect) 0 else 1)
-        if (res != 1) refreshMv("like", item)
+        if (!likingMvs.add(item.id)) return
+        try {
+            val known = likeStates[item.id]
+            val collect = known?.first ?: item.isCollect
+            val count = known?.second ?: item.collectNum
+            val before = item.copy(isCollect = collect, collectNum = count)
+            val after = item.copy(
+                isCollect = !collect,
+                collectNum = if (collect) (count - 1).coerceAtLeast(0) else count + 1,
+            )
+            likeStates[item.id] = after.isCollect to after.collectNum
+            refreshMv("like", after)
+            val res = WorksApi.collectMv(item.id, if (collect) 0 else 1)
+            if (res != 1) {
+                likeStates[item.id] = before.isCollect to before.collectNum
+                refreshMv("like", before)
+            }
+        } finally {
+            likingMvs.remove(item.id)
+        }
     }
 
     /** 跳转到思考线（MV 信息流）：args {id}。 */
@@ -908,6 +929,7 @@ object MvService {
         mvFailedIds.clear()
         mvRecord.clear()
         myMvItems.clear()
+        likeStates.clear()
     }
 
     private fun emitPatches(patches: JSONArray) {

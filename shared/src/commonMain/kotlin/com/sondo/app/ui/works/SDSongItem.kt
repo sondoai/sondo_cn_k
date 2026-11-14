@@ -212,11 +212,11 @@ class SDSongItemView : ComposeView<SDSongItemAttr, SDSongItemEvent>() {
                                 flexDirectionRow()
                                 alignItemsCenter()
                             }
-                            worksStat(AssetsImage.heandpic, song.musicHitNum.formIntText(), 14f, AppTheme.secondary)
+                            worksStat(AssetsImage.heandpic, { ws.songStats(song).hitNum.formIntText() }, 14f, AppTheme.secondary)
                             worksStatDivider()
-                            worksStat(AssetsImage.like2, song.isCollectNum.formIntText(), 14f, AppTheme.secondary)
+                            worksStat(AssetsImage.like2, { ws.songStats(song).likeNum.formIntText() }, 14f, AppTheme.secondary)
                             worksStatDivider()
-                            worksStat(AssetsImage.share2, song.repostCount.formIntText(), 14f, AppTheme.secondary)
+                            worksStat(AssetsImage.share2, { ws.songStats(song).shareNum.formIntText() }, 14f, AppTheme.secondary)
                         }
                         if (type == "create") {
                             Text {
@@ -237,11 +237,16 @@ class SDSongItemView : ComposeView<SDSongItemAttr, SDSongItemEvent>() {
                         alignItemsCenter()
                     }
                     if (type != "create") {
-                        iconBtn(if (song.isCollect) AssetsImage.likeActive else AssetsImage.like) {
-                            ctx.event.onLikeHandler?.invoke(song)
+                        View {
+                            attr {
+                                size(30f, 30f)
+                                allCenter()
+                            }
+                            event { click { ctx.event.onLikeHandler?.invoke(ws.latestSong(song)) } }
+                            SDToggleIcon(20f, { ws.songStats(song).liked }, AssetsImage.likeActive, AssetsImage.like)
                         }
                         iconBtn(AssetsImage.share) {
-                            if (!song.musicAudioUrl.isNullOrEmpty()) MusicService.onTap(MusicItemType.share, song, emptyList())
+                            if (!song.musicAudioUrl.isNullOrEmpty()) MusicService.onTap(MusicItemType.share, ws.latestSong(song), emptyList())
                         }
                     }
                     if (type == "other" || type == "liked") {

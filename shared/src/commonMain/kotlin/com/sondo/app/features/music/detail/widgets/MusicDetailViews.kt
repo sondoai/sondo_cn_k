@@ -1,5 +1,6 @@
 package com.sondo.app.features.music.detail.widgets
 
+import com.sondo.app.ui.works.SDToggleIcon
 import com.sondo.app.core.constants.AppTheme
 import com.sondo.app.core.constants.AssetsImage
 import com.sondo.app.core.constants.UIColor
@@ -520,13 +521,10 @@ private fun ViewContainer<*, *>.DetailSongInfo(ctx: MusicDetailPage) {
                         fontWeight = SDWeight.W700
                     }
                 }
-                Image {
-                    attr {
-                        size(24f, 24f)
-                        src(ImageUri.commonAssets(if (ctx.musicDetail?.isCollect == true) AssetsImage.likeActive2 else AssetsImage.likeWhite))
-                        resizeContain()
-                    }
+                // 两张图叠放只切透明度：点喜欢立即切换、图标不闪（乐观更新，失败由 MusicService 回滚）
+                View {
                     event { click { ctx.toggleFavorite() } }
+                    SDToggleIcon(24f, { ctx.isFavorite }, AssetsImage.likeActive2, AssetsImage.likeWhite)
                 }
             }
             View { attr { height(10f) } }

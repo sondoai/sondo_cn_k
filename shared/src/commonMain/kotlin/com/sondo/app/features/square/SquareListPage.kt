@@ -3,6 +3,7 @@ package com.sondo.app.features.square
 import com.sondo.app.base.BasePager
 import com.sondo.app.base.Events
 import com.sondo.app.base.Routes
+import com.sondo.app.ui.works.WorksState
 import com.sondo.app.core.constants.AssetsImage
 import com.sondo.app.core.constants.asset
 import com.sondo.app.core.http.ApiResult
@@ -68,10 +69,6 @@ internal class SquareListPage : BasePager() {
             title = "new_mvs".tr
         }
         isFindHot = args.isFindHot
-        on(Events.MV_LIST_CHANGED) { json ->
-            val item = json.optJSONObject("item") ?: return@on
-            updateVideoList(json.optString("type", ""), MvModel.fromJson(item).toEntity())
-        }
         paging.refresh()
     }
 
@@ -83,7 +80,7 @@ internal class SquareListPage : BasePager() {
             this,
             SquarePlayArgs(
                 videoType = videoType,
-                videoList = ArrayList(paging.list),
+                videoList = ArrayList(paging.list.map { WorksState.of(this).latestVideo(it) }),
                 initialIndex = index,
                 pageNo = paging.pageNo,
                 isFindHot = isFindHot,
@@ -95,19 +92,7 @@ internal class SquareListPage : BasePager() {
         SquareNav.openProfile(this, SquareProfileArgs(userId = video.userId))
     }
 
-    /** 跨页同步收藏 / 分享 / 播放数。 */
-    private fun updateVideoList(type: String, item: VideoContentEntity) {
-        if (!item.isMv || videoType != 0) return
-        val index = paging.list.indexOfFirst { it.id == item.id }
-        if (index == -1) return
-        val cur = paging.list[index]
-        paging.list[index] = when (type) {
-            "like" -> cur.copy(isCollect = item.isCollect, collectNum = item.collectNum)
-            "share" -> cur.copy(repostCount = item.repostCount)
-            "play" -> cur.copy(mvHitNum = item.mvHitNum)
-            else -> return
-        }
-    }
+    // 收藏 / 分享 / 播放数由 WorksState 按 id 覆盖，卡片局部刷新，不替换列表元素（替换会重建卡片、封面重新加载）。
 
     /** 空态点击重试。 */
     internal fun retry() = paging.refresh()

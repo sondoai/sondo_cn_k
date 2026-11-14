@@ -398,6 +398,7 @@ internal class LaunchPage : BasePager() {
                         absolutePosition(left = 0f, right = 0f, bottom = if (ctx.liftAboveNav > 0f) 0f else 6f)
                         barWidth = ctx.screenWidth - MainNavColors.horizontalPadding * 2f
                         selected = ctx.selectedTab
+                        pageVisible = ctx.rootVisible
                     }
                     event {
                         onHomeTap { MainController.selectTab(MainNavTab.home) }

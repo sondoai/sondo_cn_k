@@ -1,0 +1,10 @@
+# Android 分发渠道号（一行一个；# 开头为注释）
+# 与应用市场一一对应，禁止混用
+official
+huawei
+xiaomi
+oppo
+vivo
+honor
+tencent
+douyin

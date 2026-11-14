@@ -1,6 +1,8 @@
 package com.sondo.app.service.audio
 
 import com.sondo.app.core.utils.onHost
+import kotlin.coroutines.resume
+import kotlin.coroutines.suspendCoroutine
 
 /** 试听前的主播放现场。 */
 class AppAudioPlaybackSnapshot(
@@ -45,6 +47,16 @@ class AppAudioPreviewSession {
 
     val isActive: Boolean get() = snapshot != null
 
+    /** 正在恢复的主播放现场（stop 里清掉 snapshot 之后、restore 完成之前仍算「主音轨被挂起」）。 */
+    private var restoring: AppAudioPlaybackSnapshot? = null
+
+    /**
+     * 主播放（`song:` 轨道）是否只是被试听临时挂起：试听前保存的现场里有主音轨，结束试听时会恢复。
+     * 导航栏据此在试听期间（及恢复过程中）保留音乐胶囊，不让它消失又出现。
+     */
+    val suspendsMainTrack: Boolean
+        get() = (snapshot ?: restoring)?.queue?.any { it.id.startsWith(MAIN_TRACK_PREFIX) } == true
+
     /** 只加载不播放（用于拿时长）。 */
     suspend fun load(track: AppAudioTrack, clip: AppAudioClip? = null, loop: Boolean = false) {
         if (snapshot == null) snapshot = AppAudioPlaybackSnapshot.capture()
@@ -71,23 +83,34 @@ class AppAudioPreviewSession {
         val active = activePreviewTrack
         snapshot = null
         activePreviewTrack = null
-        if (AppAudioPlayer.currentTrack !== active) {
-            if (AppAudioPlayer.completionMode == AppAudioCompletionMode.stop) {
-                AppAudioPlayer.setCompletionMode(snap.completionMode)
+        // 从清空试听队列到主现场恢复完成，中间的状态广播里仍算「主音轨被挂起」
+        if (restore) restoring = snap
+        try {
+            if (AppAudioPlayer.currentTrack !== active) {
+                if (AppAudioPlayer.completionMode == AppAudioCompletionMode.stop) {
+                    AppAudioPlayer.setCompletionMode(snap.completionMode)
+                }
+                return
             }
-            return
-        }
-        AppAudioPlayer.stop(clearQueue = true)
-        if (AppAudioPlayer.currentTrack != null) {
-            if (AppAudioPlayer.completionMode == AppAudioCompletionMode.stop) {
-                AppAudioPlayer.setCompletionMode(snap.completionMode)
+            AppAudioPlayer.stop(clearQueue = true)
+            if (AppAudioPlayer.currentTrack != null) {
+                if (AppAudioPlayer.completionMode == AppAudioCompletionMode.stop) {
+                    AppAudioPlayer.setCompletionMode(snap.completionMode)
+                }
+                return
             }
-            return
+            if (restore) snap.restore() else AppAudioPlayer.setCompletionMode(snap.completionMode)
+        } finally {
+            restoring = null
         }
-        if (restore) snap.restore() else AppAudioPlayer.setCompletionMode(snap.completionMode)
     }
 
     suspend fun dispose() = stop()
+
+    private companion object {
+        /** 主播放器歌曲轨道的 id 前缀（与 PlayerService 一致）。 */
+        const val MAIN_TRACK_PREFIX = "song:"
+    }
 }
 
 /**
@@ -99,26 +122,47 @@ object AppAudioPreviewCoordinator {
     private val session = AppAudioPreviewSession()
     private var owner: Any? = null
 
+    // —— 串行执行 —— //
+    // load / play / stop 都会挂起（等原生播放器），以前各自并发跑：选曲弹窗选中歌曲后，弹窗的 stop 还在异步恢复主播放列表，
+    // MV 创作页的裁剪器已经 load 了新歌，此时快照已清空，裁剪器重新「保存现场」抓到的是恢复了一半的播放器（只剩试听轨）。
+    // 离开创作页时恢复的就不是主播放列表，主音轨一直不活跃 —— 导航栏的音乐胶囊先消失、之后才又出现。
+    // 现在按调用顺序逐个执行，后一个操作一定看到前一个操作完成后的播放器。
+    private var busy = false
+    private val waiters = ArrayList<() -> Unit>()
+
+    private suspend fun serial(block: suspend () -> Unit) = onHost {
+        if (busy) suspendCoroutine<Unit> { cont -> waiters.add { cont.resume(Unit) } }
+        busy = true
+        try {
+            block()
+        } finally {
+            if (waiters.isEmpty()) busy = false else waiters.removeAt(0).invoke()
+        }
+    }
+
     fun owns(owner: Any): Boolean = this.owner === owner
 
     val isActive: Boolean get() = session.isActive
 
+    /** 主音轨是否只是被试听临时挂起（见 [AppAudioPreviewSession.suspendsMainTrack]）。 */
+    val suspendsMainTrack: Boolean get() = session.suspendsMainTrack
+
     suspend fun load(owner: Any, track: AppAudioTrack, clip: AppAudioClip? = null, loop: Boolean = false) {
         this.owner = owner
-        onHost { session.load(track, clip, loop) }
+        serial { session.load(track, clip, loop) }
     }
 
     suspend fun play(owner: Any, track: AppAudioTrack, clip: AppAudioClip? = null, loop: Boolean = false) {
         this.owner = owner
-        onHost { session.play(track, clip, loop) }
+        serial { session.play(track, clip, loop) }
     }
 
     suspend fun resume(owner: Any) {
-        if (owns(owner)) onHost { AppAudioPlayer.play() }
+        if (owns(owner)) serial { AppAudioPlayer.play() }
     }
 
     suspend fun pause(owner: Any) {
-        if (owns(owner)) onHost { AppAudioPlayer.pause() }
+        if (owns(owner)) serial { AppAudioPlayer.pause() }
     }
 
     fun seek(owner: Any, positionMs: Long) {
@@ -128,6 +172,6 @@ object AppAudioPreviewCoordinator {
     suspend fun stop(owner: Any, restore: Boolean = true) {
         if (!owns(owner)) return
         this.owner = null
-        onHost { session.stop(restore) }
+        serial { session.stop(restore) }
     }
 }

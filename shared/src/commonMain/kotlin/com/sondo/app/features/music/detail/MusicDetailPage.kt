@@ -22,6 +22,7 @@ import com.sondo.app.features.music.data.SongDetailEntity
 import com.sondo.app.features.music.detail.widgets.MusicDetailBody
 import com.sondo.app.features.music.detail.widgets.showPlayerQueueSheet
 import com.sondo.app.ui.works.showReportTagOptions
+import com.sondo.app.ui.works.WorksState
 import com.sondo.app.service.ConfigService
 import com.sondo.app.service.LyricLine
 import com.sondo.app.service.MusicItemType
@@ -54,6 +55,16 @@ internal class MusicDetailPage : BasePager() {
     // ── 页面数据 ──
     var musicDetail by observable<SongModel?>(null)
     var isLoading by observable(false)
+
+    /** 页面级作品状态镜像：收藏图标读它（乐观更新只刷新图标，不替换 musicDetail）。 */
+    internal val works: WorksState by lazy { WorksState.of(this) }
+
+    /** 当前歌曲是否已收藏（在 attr 里读）。 */
+    internal val isFavorite: Boolean
+        get() {
+            val song = musicDetail ?: return false
+            return works.songStats(song).liked
+        }
 
     /** 本页已经为这些歌曲请求过详情。缺歌词只补一次。 */
     private val lyricFetchedIds = HashSet<Long>()
@@ -131,10 +142,7 @@ internal class MusicDetailPage : BasePager() {
         }
         on(Events.PLAYER_STATE) { applyState(it, initial = false) }
         on(Events.PLAYER_POSITION) { applyPosition(it) }
-        on(Events.MUSIC_LIST_CHANGED) { data ->
-            val item = data.optJSONObject("item") ?: return@on
-            updateMusic(data.optString("type", ""), SongModel.fromJson(item))
-        }
+        works // 尽早建镜像：订阅收藏变化
         checkFirstTimeMask()
         initData()
         postDelayed(2000) { showScore() }
@@ -679,16 +687,9 @@ internal class MusicDetailPage : BasePager() {
             if (!isLogin) isLogin = UserStore.showLoginDialog(ctx)
             if (!isLogin || disposed) return@launch
             val song = musicDetail ?: return@launch
-            MusicService.onTap(MusicItemType.like, song, emptyList())
-            // 乐观更新
-            musicDetail = song.copy(isCollect = !song.isCollect)
+            // 乐观更新由 MusicService 负责：立即广播新收藏态，WorksState 只刷新收藏图标；失败自动回滚
+            MusicService.onTap(MusicItemType.like, works.latestSong(song), emptyList())
         }
-    }
-
-    private fun updateMusic(type: String, item: SongModel) {
-        val cur = musicDetail ?: return
-        if (cur.id != item.id) return
-        if (type == "like") musicDetail = cur.copy(isCollect = item.isCollect, isCollectNum = item.isCollectNum)
     }
 
     fun share() {

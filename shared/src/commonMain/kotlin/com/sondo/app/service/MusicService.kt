@@ -168,27 +168,53 @@ object MusicService {
         PlayerService.playSong(item, songs = resolvePlaylist(ui, list))
     }
 
-    /** 收藏 / 取消收藏。[isCollect] 为面板当前展示的收藏态，null 时取 item 自身。 */
+    /** 正在提交收藏请求的歌曲：连点只算一次。 */
+    private val likingSongs = HashSet<Long>()
+
+    /**
+     * 本次会话里收藏操作后的最新状态（id → 是否收藏 / 收藏数）。列表不再随收藏整项替换，
+     * 调用方传进来的条目可能还是旧值；取反时以这里为准。换账号 / 退出登录时清空（[cancelMusicData]）。
+     */
+    private val likeStates = HashMap<Long, Pair<Boolean, Int>>()
+
+    /**
+     * 收藏 / 取消收藏（乐观更新）：先广播新状态让界面立刻变，再请求接口，失败回滚并提示。
+     * [isCollect] 为面板当前展示的收藏态，null 时取最近一次操作的结果或 item 自身。
+     */
     private suspend fun onLikeSong(ui: UiCtx, item: SongModel, isCollect: Boolean?) {
         // 判断是否登录
         if (!Account.ensureLogin(ui.pager)) return
-        ui.showLoading()
-        val collect = isCollect ?: item.isCollect
-        val collectStatus = if (collect) 0 else 1
-        val res = WorksApi.collectSong(item.id, collectStatus)
-        ui.closeLoading()
-        if (res == 1) {
-            ui.toast(if (collectStatus == 1) "collect_success".tr else "uncollect_success".tr)
-            val i = item.copy(
-                isCollectNum = if (collectStatus == 1) item.isCollectNum + 1 else item.isCollectNum - 1,
+        if (!likingSongs.add(item.id)) return
+        try {
+            val known = likeStates[item.id]
+            val collect = isCollect ?: known?.first ?: item.isCollect
+            val count = known?.second ?: item.isCollectNum
+            val collectStatus = if (collect) 0 else 1
+            val before = item.copy(isCollect = collect, isCollectNum = count)
+            val after = item.copy(
                 isCollect = !collect,
+                isCollectNum = if (collectStatus == 1) count + 1 else (count - 1).coerceAtLeast(0),
             )
-            PlayerService.setSong(i, "dialog_more")
-            refreshMusic("like", i)
-            UmengUtils.logEvent(if (collectStatus == 1) "like_song" else "unlike_song")
-        } else {
-            ui.toast(if (collectStatus == 1) "collect_failed".tr else "uncollect_failed".tr)
+            applyLike(after)
+            val res = WorksApi.collectSong(item.id, collectStatus)
+            if (res == 1) {
+                ui.toast(if (collectStatus == 1) "collect_success".tr else "uncollect_success".tr)
+                UmengUtils.logEvent(if (collectStatus == 1) "like_song" else "unlike_song")
+            } else {
+                applyLike(before)
+                ui.toast(if (collectStatus == 1) "collect_failed".tr else "uncollect_failed".tr)
+            }
+        } finally {
+            likingSongs.remove(item.id)
         }
+    }
+
+    private fun applyLike(song: SongModel) {
+        likeStates[song.id] = song.isCollect to song.isCollectNum
+        // 「更多」面板展示的是 PlayerService.song：只在它就是这首歌时同步，别把面板换成别的歌
+        val panel = PlayerService.song
+        if (panel == null || panel.id == song.id) PlayerService.setSong(song, "dialog_more")
+        refreshMusic("like", song)
     }
 
     /** 下载歌曲：下载声明 → 仅会员（否则去订阅页）→ 拉取音频 → 系统「存储为」。 */
@@ -471,6 +497,7 @@ object MusicService {
         pollGeneration++
         generatingIds.clear()
         tracked.clear()
+        likeStates.clear()
         PollingService.stopTask(POLLING_TASK_ID)
     }
 

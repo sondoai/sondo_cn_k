@@ -16,6 +16,7 @@ import com.sondo.app.service.audio.AppAudioPlayMode
 import com.sondo.app.service.audio.AppAudioPlaybackStatus
 import com.sondo.app.service.audio.AppAudioPlayer
 import com.sondo.app.service.audio.AppAudioPlayerState
+import com.sondo.app.service.audio.AppAudioPreviewCoordinator
 import com.sondo.app.service.audio.AppAudioTrack
 import com.tencent.kuikly.core.coroutines.launch
 import com.tencent.kuikly.core.log.KLog
@@ -191,7 +192,7 @@ object PlayerService {
      * 同步快照（= [Events.PLAYER_STATE] 的 data）：
      * {currentSongId, currentIndex, hasCurrentSong, currentSong?{id,musicTitle,musicCoverUrl,musicAudioUrl,musicGenerateStatus},
      *  isPlaying, isRotating, processingState, buffering, positionMs, durationMs, bufferedMs, progress,
-     *  playMode, playModeIndex, playModeName, queueSize, isMainTrackActive, hasTrack, trackId,
+     *  playMode, playModeIndex, playModeName, queueSize, isMainTrackActive, isMainTrackSuspended, hasTrack, trackId,
      *  currentLyricIndex, lyricCount, isSwitchingSource, navPlayerChanged}
      */
     fun snapshot(navPlayerChanged: Boolean = false): JSONObject {
@@ -214,6 +215,8 @@ object PlayerService {
             .put("playModeName", playMode.displayName)
             .put("queueSize", _playlist.size)
             .put("isMainTrackActive", isMainTrackActive)
+            // 主音轨被试听临时占用（结束试听会恢复）：导航栏据此保留音乐胶囊
+            .put("isMainTrackSuspended", !isMainTrackActive && AppAudioPreviewCoordinator.suspendsMainTrack)
             .put("hasTrack", track != null)
             .put("trackId", track?.id ?: "")
             .put("currentLyricIndex", currentLyricIndex)

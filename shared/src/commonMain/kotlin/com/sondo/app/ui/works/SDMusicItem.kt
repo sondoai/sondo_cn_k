@@ -53,7 +53,9 @@ class SDMusicItemView : ComposeView<SDMusicItemAttr, SDMusicItemEvent>() {
 
     internal fun fire(type: MusicItemType) {
         val h = event.tapHandler
-        if (h != null) h(type) else MusicService.onTap(type, attr.item, attr.list)
+        // 收藏 / 分享按当前互动数据走（列表元素不随收藏替换，attr.item 里的计数可能是旧的）
+        val item = worksState.latestSong(attr.item)
+        if (h != null) h(type) else MusicService.onTap(type, item, attr.list)
     }
 
     override fun body(): ViewBuilder {
@@ -177,11 +179,11 @@ class SDMusicItemView : ComposeView<SDMusicItemAttr, SDMusicItemEvent>() {
                                     flexDirectionRow()
                                     alignItemsCenter()
                                 }
-                                worksStat(AssetsImage.heandpic, item.musicHitNum.formIntText())
+                                worksStat(AssetsImage.heandpic, { ws.songStats(item).hitNum.formIntText() })
                                 worksStatDivider()
-                                worksStat(AssetsImage.like2, item.isCollectNum.formIntText())
+                                worksStat(AssetsImage.like2, { ws.songStats(item).likeNum.formIntText() })
                                 worksStatDivider()
-                                worksStat(AssetsImage.share2, item.repostCount.formIntText())
+                                worksStat(AssetsImage.share2, { ws.songStats(item).shareNum.formIntText() })
                             }
                             Text {
                                 attr {
@@ -221,7 +223,7 @@ class SDMusicItemView : ComposeView<SDMusicItemAttr, SDMusicItemEvent>() {
                                 alignItemsCenter()
                                 marginBottom(-8f)
                             }
-                            worksChip(if (item.isCollect) AssetsImage.likeActive else AssetsImage.libLike, "like".tr, 8f) {
+                            worksLikeChip({ ws.songStats(item).liked }, AssetsImage.likeActive, AssetsImage.libLike, 8f) {
                                 ctx.fire(MusicItemType.like)
                             }
                             val key = item.id.toString()

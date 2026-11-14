@@ -31,6 +31,23 @@ cd iosApp && pod install && open iosApp.xcworkspace
 
 没有完整 Xcode 的机器上，`shared/build.gradle.kts` 会自动跳过 iOS target（`-Psondo.enableIos=true` 可强制打开）。
 
+### 打包 / 蒲公英 / 渠道包
+
+```bash
+# 三端打包 →（可选）上传蒲公英；不带参数为交互式，产物在 dist/
+./scripts/build_app.sh -p android|ios|ohos -e prod|test|local -m release|debug [--token] --upload|--no-upload [-d 描述]
+
+# Android 渠道包：先打母包，再（可选外部加固重签后）用 Walle 写渠道，清单 androidApp/channel_list
+./scripts/build_channels.sh --build [--env prod]
+./scripts/build_channels.sh --signed dist/channels/sondo-<版本>-prod-mother.apk [--channels official,huawei]
+```
+
+- 蒲公英 Key、鸿蒙签名材料放 `scripts/build.local.sh`（gitignore，模板 `scripts/build.local.sh.example`）。
+- 鸿蒙：脚本依次跑 `ohos_build.sh` → `ohpm install` → `hvigorw assembleHap`，环境经 `-p API_ENV=…`
+  由 `ohosApp/entry/hvigorfile.ts` 覆盖 `buildProfileFields`；签名用 SDK 的 `hap-sign-tool.jar` + 本地发布证书
+  （不依赖 `build-profile.json5` 里别人机器的签名路径）。
+- iOS：需完整 Xcode + CocoaPods，导出配置 `iosApp/ExportOptions-debug.plist`（debugging、自动签名）。
+
 ## 工程结构
 
 ```
