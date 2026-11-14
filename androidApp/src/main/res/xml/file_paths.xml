@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- FileProvider（authority: ${applicationId}.fileprovider）可对外授权的目录。
+     只覆盖 App 私有目录；分享其它位置的文件时 SDAppModule 会先拷进 cache/sd_share 再授权。 -->
+<paths>
+    <cache-path name="cache" path="." />
+    <files-path name="files" path="." />
+    <external-cache-path name="external_cache" path="." />
+    <external-files-path name="external_files" path="." />
+</paths>

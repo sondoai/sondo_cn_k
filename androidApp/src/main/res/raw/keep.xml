@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- release 开了 shrinkResources。极光一键登录弹窗的图片是按名字交给极光 SDK 和 getIdentifier 的，
+     打包工具看不到这些引用，会把图片当成没用到的资源裁掉，弹窗就退回 SDK 默认的白底蓝按钮。
+     新增弹窗图片请沿用 jv_ 前缀。 -->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@drawable/jv_*" />

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 极光一键登录底部弹窗（运营商授权页 Activity 用）：窗口透明，露出下面的页面并压暗 70%。
+         不开系统的“点外部关闭”：SDK 收不到这种关闭，登录调用会一直等到超时。
+         点空白处 / 下滑关闭由 JVerifySheetDismiss 识别后走正常的取消流程。 -->
+    <style name="JverifySheetTheme" parent="@android:style/Theme.Translucent.NoTitleBar">
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:backgroundDimEnabled">true</item>
+        <item name="android:backgroundDimAmount">0.7</item>
+        <item name="android:windowCloseOnTouchOutside">false</item>
+    </style>
+
+    <!-- 微信回跳中转页：全透明、无转场，一闪而过不露白屏。 -->
+    <style name="WXEntryTheme" parent="@android:style/Theme.Translucent.NoTitleBar">
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowAnimationStyle">@null</item>
+        <item name="android:windowDisablePreview">true</item>
+    </style>
+</resources>

@@ -1,0 +1,59 @@
+{
+  "app": {
+    // 签名：在 DevEco Studio 里 File > Project Structure > Signing Configs 勾选
+    // 「Automatically generate signature」，IDE 会把 material 写到这里（不要提交个人证书路径）。
+    "signingConfigs": [
+      {
+        "name": "default",
+        "type": "HarmonyOS",
+        "material": {
+          "certpath": "/Users/mac/.ohos/config/default_ohosApp_U3OKWDQLxG2gnf63BdyOJza4zOCBeczSO9mS3xA76Gs=.cer",
+          "keyAlias": "debugKey",
+          "keyPassword": "0000001AD8A59108DC32BAE80648FDD95CC5E3971BEBFA594442745BDE7E81246074612F0719390B3E15",
+          "profile": "/Users/mac/.ohos/config/default_ohosApp_U3OKWDQLxG2gnf63BdyOJza4zOCBeczSO9mS3xA76Gs=.p7b",
+          "signAlg": "SHA256withECDSA",
+          "storeFile": "/Users/mac/.ohos/config/default_ohosApp_U3OKWDQLxG2gnf63BdyOJza4zOCBeczSO9mS3xA76Gs=.p12",
+          "storePassword": "0000001AF8AEA19DF1582F90D27A5859A50D95A17846047ADDE50D51DB0F410D08AFDBC8F1B1087736AC"
+        }
+      }
+    ],
+    "products": [
+      {
+        "name": "default",
+        "signingConfig": "default",
+        // @kuikly-open/render 2.x 以字节码 HAR 发布，要求 API 12（HarmonyOS 5.0.0）及 useNormalizedOHMUrl。
+        "compatibleSdkVersion": "5.0.0(12)",
+        "runtimeOS": "HarmonyOS",
+        "buildOption": {
+          "strictMode": {
+            "caseSensitiveCheck": true,
+            "useNormalizedOHMUrl": true
+          }
+        },
+        "targetSdkVersion": "26.0.0"
+      }
+    ],
+    "buildModeSet": [
+      {
+        "name": "debug"
+      },
+      {
+        "name": "release"
+      }
+    ]
+  },
+  "modules": [
+    {
+      "name": "entry",
+      "srcPath": "./entry",
+      "targets": [
+        {
+          "name": "default",
+          "applyToProducts": [
+            "default"
+          ]
+        }
+      ]
+    }
+  ]
+}

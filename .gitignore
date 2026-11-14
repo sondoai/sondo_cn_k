@@ -1,0 +1,23 @@
+.gradle/
+.idea/
+.kotlin/
+build/
+local.properties
+*.iml
+.DS_Store
+captures/
+.externalNativeBuild/
+.cxx/
+xcuserdata/
+iosApp/Pods/
+iosApp/Podfile.lock
+ohosApp/oh_modules/
+ohosApp/.hvigor/
+ohosApp/entry/oh_modules/
+ohosApp/entry/build/
+ohosApp/entry/.cxx/
+ohosApp/entry/libs/
+ohosApp/build/
+# Kuikly Skills 首次调用时克隆的 KuiklyUI 源码与更新时间戳
+.claude/skills/*/references/KuiklyUI/
+.claude/skills/*/scripts/.last-update

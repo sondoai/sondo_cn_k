@@ -1,0 +1,193 @@
+/*
+ * ============================  DRAFT —— 未编译、未验证、未接线  ============================
+ *
+ * 极光认证鸿蒙 SDK（ohpm 包 @jg/verify）的 JVerifyAdapter 草稿。文件后缀是 .draft，
+ * 不参与编译；JVerifyProvider 当前返回的是 UnsupportedJVerifyAdapter。
+ *
+ * UNVERIFIED（全部）：下面每一处对 @jg/verify 的调用都只依据极光官网文档
+ *   https://docs.jiguang.cn/jverification/client/harmonyos_api （2026-04 版，SDK v1.2.2）
+ *   https://docs.jiguang.cn/jverification/client/harmonyos_guide
+ * 的文字描述，没有见过 SDK 的 .d.ets，也没有可对照的开源调用方。文档里给出的签名：
+ *   JVerificationInterface.setDebugMode(enable: boolean)
+ *   JVerificationInterface.init(context: common.ApplicationContext, appkey: string, callback: (code: number, msg: string) => void)   // 8000 成功
+ *   JVerificationInterface.isInitSuccess(): boolean
+ *   async JVerificationInterface.checkVerifyEnable(): boolean
+ *   JVerificationInterface.prelogin(callback: (code: number, msg: string, operatorMsg: string) => void, timeout = 10000)   // 7000 成功；timeout ∈ (5000, 30000]
+ *   JVerificationInterface.loginAuth(settings: JVerificationLoginSettings, callback: (code, msg, operatorMsg) => void)     // 6000 成功(msg=loginToken) / 6001 失败 / 6002 取消
+ *   class JVerificationLoginSettings { autoFinish = true; timeout = 10000; authPageEventListener?; context: UIContext; navPathStack?; isRouter = true; constructor(context: UIContext) }
+ *   JVerificationInterface.dismissLoginAuthActivity(context: UIContext)
+ *   JVerificationInterface.setCustomUIWithConfig(config: JVerifyUIConfig)   // new JVerifyUIConfigBuilder()....build()，须在 loginAuth 之前
+ *   授权页事件 code：1 关闭 / 2 打开 / 3 点击协议 / 6 勾选 / 7 取消勾选 / 8 点击登录按钮
+ *
+ * 启用步骤：
+ *   1. entry/oh-package.json5 加依赖："@jg/verify": "^1.1.0"（文档同时要求 "pako": "^2.1.0"、"js-sha256": "^0.9.0"）；
+ *      工程级 build-profile.json5 打开 strictMode.useNormalizedOHMUrl（联通 SDK 要求）。
+ *   2. module.json5 追加权限：ohos.permission.GET_WIFI_INFO、ohos.permission.SET_NETWORK_INFO
+ *      （INTERNET、GET_NETWORK_INFO 已有）。
+ *   3. 把极光下发包 media 目录里的 jverify_*.png 拷到 AppScope/resources/base/media。
+ *   4. 极光控制台：认证设置 → 集成设置，填鸿蒙包名 + 签名指纹，拿 AppKey（AppConstants.jverifyAppKey）。
+ *   5. 本文件改名为 JVerifySdkAdapter.ets，对着 SDK 的 .d.ets 逐行核对下面的调用，
+ *      然后把 JVerifyAdapter.ets 里 JVerifyProvider.create() 改为 `return new JVerifySdkAdapter();`。
+ *
+ * 还没做的（接入时必须补，否则体验不达标）：
+ *   - 授权页样式：契约要求「底部弹层 + 短信登录入口 + 微信登录入口 + 自定义协议行 + 未勾选提示」。
+ *     需要用 JVerifyUIConfigBuilder（enableDialogMode / setDialogWidth / setDialogHeight / setLogBtn* /
+ *     setPrivacyNameAndUrlBeanList / setEnableHintToastText …）加 addCustomView(WrappedBuilder<[]>) 画两个入口按钮，
+ *     按钮点击后 dismiss 授权页并以 action="sms" / "wechat" 结束（见下面的 finishWith）。
+ *     移动（CM）号段要另外用 GenAuthThemeConfigBuilder 配一遍（setCmUIConfig）。
+ *     在入口按钮做出来之前不要上线：用户不想一键登录时只能「取消」，没有别的登录路径。
+ *   - loginAuth 依赖页面路由：SDK 默认 settings.isRouter=true（router 压栈）。本工程宿主是 Navigation 结构
+ *     （pages/Index + SDNavigator.shared().pathStack），需要 settings.isRouter=false 并传 settings.navPathStack；
+ *     文档提到 navigation 模式对不同运营商有限制，必须三家运营商的卡都实机确认授权页能压栈、能返回。
+ *     下面的草稿还是按默认的 router 模式写的。
+ */
+import { common } from '@kit.AbilityKit';
+import { UIContext } from '@kit.ArkUI';
+import { JVerificationInterface, JVerificationLoginSettings } from '@jg/verify';
+import { SDHost, SDLog } from '../../../support/SDModuleSupport';
+import {
+  JVerifyAction,
+  JVerifyAdapter,
+  JVerifyLoginOptions,
+  JVerifyLoginResult
+} from './JVerifyAdapter';
+
+const TAG: string = 'JVerifySdkAdapter';
+const CODE_LOGIN_OK: number = 6000;
+const CODE_LOGIN_CANCEL: number = 6002;
+const CODE_NETWORK_UNSUPPORTED: number = 2016;
+/** 授权页一直没弹出来的兜底（参考工程是 2 分钟）。 */
+const PRE_SHOW_TIMEOUT_MS: number = 120000;
+const PAGE_EVENT_CLOSED: number = 1;
+const PAGE_EVENT_SHOWN: number = 2;
+
+type LoginFinish = (result: JVerifyLoginResult) => void;
+
+export class JVerifySdkAdapter implements JVerifyAdapter {
+  /** 进行中的 loginAuth 的结束函数（保证只结束一次）。 */
+  private finishLogin: LoginFinish | null = null;
+
+  isSupported(): boolean {
+    return true;
+  }
+
+  setup(appKey: string, channel: string, debug: boolean, timeoutMs: number): Promise<number> {
+    return new Promise<number>((resolve: (code: number) => void, reject: (reason: Error) => void) => {
+      const context: common.UIAbilityContext | null = SDHost.context();
+      if (context === null) {
+        reject(new Error('UIAbilityContext unavailable'));
+        return;
+      }
+      // >>> SDK CALL SITE（UNVERIFIED）—— channel 在鸿蒙 SDK 文档里没有对应接口，忽略
+      JVerificationInterface.setDebugMode(debug);
+      JVerificationInterface.init(context.getApplicationContext(), appKey, (code: number, msg: string) => {
+        SDLog.i(TAG, `init code=${code} msg=${msg}`);
+        resolve(code);
+      });
+      // <<< SDK CALL SITE
+    });
+  }
+
+  async checkEnable(): Promise<boolean> {
+    // >>> SDK CALL SITE（UNVERIFIED）
+    const enable: boolean = await JVerificationInterface.checkVerifyEnable();
+    // <<< SDK CALL SITE
+    return enable === true;
+  }
+
+  preLogin(timeoutMs: number): Promise<number> {
+    return new Promise<number>((resolve: (code: number) => void) => {
+      // 文档：timeout 取值 (5000, 30000]，范围外按 10000
+      const timeout: number = timeoutMs > 5000 ? timeoutMs : 5001;
+      // >>> SDK CALL SITE（UNVERIFIED）
+      JVerificationInterface.prelogin((code: number, msg: string, operatorMsg: string) => {
+        SDLog.i(TAG, `prelogin code=${code} msg=${msg}`);
+        resolve(code);
+      }, timeout);
+      // <<< SDK CALL SITE
+    });
+  }
+
+  loginAuth(options: JVerifyLoginOptions): Promise<JVerifyLoginResult> {
+    return new Promise<JVerifyLoginResult>((resolve: (result: JVerifyLoginResult) => void) => {
+      let done: boolean = false;
+      let preShowTimer: number = -1;
+      const finish: LoginFinish = (result: JVerifyLoginResult): void => {
+        if (done) {
+          return;
+        }
+        done = true;
+        if (preShowTimer >= 0) {
+          clearTimeout(preShowTimer);
+        }
+        this.finishLogin = null;
+        resolve(result);
+      };
+      this.finishLogin = finish;
+
+      const uiContext: UIContext | null = SDHost.uiContext();
+      if (uiContext === null) {
+        finish(JVerifySdkAdapter.result(JVerifyAction.ERROR, 0, 'UIContext unavailable'));
+        return;
+      }
+      preShowTimer = setTimeout(() => {
+        this.dismiss();
+        finish(JVerifySdkAdapter.result(JVerifyAction.ERROR, 0, 'auth page not shown'));
+      }, PRE_SHOW_TIMEOUT_MS);
+
+      // TODO(接入时)：这里先 JVerificationInterface.setCustomUIWithConfig(...) 配好底部弹层与
+      //   options.title / loginButtonText / otherLoginText / wechatLoginText / privacy* 对应的 UI；
+      //   两个入口按钮的点击回调里调用：
+      //     this.dismiss(); finish(JVerifySdkAdapter.result(JVerifyAction.SMS, 0, ''));      // 或 WECHAT
+
+      // >>> SDK CALL SITE（UNVERIFIED）
+      const settings: JVerificationLoginSettings = new JVerificationLoginSettings(uiContext);
+      settings.autoFinish = true;
+      settings.timeout = options.timeoutMs;
+      settings.authPageEventListener = (code: number, msg: string): void => {
+        if (code === PAGE_EVENT_SHOWN && preShowTimer >= 0) {
+          clearTimeout(preShowTimer);
+          preShowTimer = -1;
+        } else if (code === PAGE_EVENT_CLOSED) {
+          // 页面关了但登录回调没来：给 300ms 宽限后按取消处理（与参考工程一致）
+          setTimeout(() => {
+            finish(JVerifySdkAdapter.result(JVerifyAction.CANCEL, CODE_LOGIN_CANCEL, ''));
+          }, 300);
+        }
+      };
+      JVerificationInterface.loginAuth(settings, (code: number, msg: string, operatorMsg: string) => {
+        if (code === CODE_LOGIN_OK) {
+          const r: JVerifyLoginResult = JVerifySdkAdapter.result(JVerifyAction.TOKEN, code, '');
+          r.token = msg;
+          r.operator = operatorMsg;
+          finish(r);
+        } else if (code === CODE_LOGIN_CANCEL) {
+          finish(JVerifySdkAdapter.result(JVerifyAction.CANCEL, code, ''));
+        } else if (code === CODE_NETWORK_UNSUPPORTED) {
+          finish(JVerifySdkAdapter.result(JVerifyAction.UNSUPPORTED, code, msg));
+        } else {
+          finish(JVerifySdkAdapter.result(JVerifyAction.ERROR, code, msg));
+        }
+      });
+      // <<< SDK CALL SITE
+    });
+  }
+
+  dismiss(): void {
+    const uiContext: UIContext | null = SDHost.uiContext();
+    if (uiContext === null) {
+      return;
+    }
+    // >>> SDK CALL SITE（UNVERIFIED）—— 文档：进行中的 loginAuth 会立刻收到 6002
+    JVerificationInterface.dismissLoginAuthActivity(uiContext);
+    // <<< SDK CALL SITE
+  }
+
+  private static result(action: string, code: number, error: string): JVerifyLoginResult {
+    const r: JVerifyLoginResult = new JVerifyLoginResult();
+    r.action = action;
+    r.code = code;
+    r.error = error;
+    return r;
+  }
+}

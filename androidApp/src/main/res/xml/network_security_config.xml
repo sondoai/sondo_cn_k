@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false" />
+    <!-- local / test 环境走局域网与裸 IP -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">192.168.10.248</domain>
+        <domain includeSubdomains="true">150.136.249.184</domain>
+        <domain includeSubdomains="true">localhost</domain>
+        <domain includeSubdomains="true">10.0.2.2</domain>
+    </domain-config>
+    <!-- 极光一键登录：运营商取号走蜂窝网络上的网关，其中个别接口是明文 HTTP（极光文档要求全局禁用明文的应用加白名单）。
+         极光认证 SDK 自带一个同名的 network_security_config（全局允许明文），会被本文件覆盖，
+         所以这里只对 SDK 里出现的三家运营商网关域名放开：移动 / 联通 / 电信。 -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">cmpassport.com</domain>
+        <domain includeSubdomains="true">10010.com</domain>
+        <domain includeSubdomains="true">wostore.cn</domain>
+        <domain includeSubdomains="true">wosms.cn</domain>
+        <domain includeSubdomains="true">id6.me</domain>
+        <domain includeSubdomains="true">189.cn</domain>
+        <domain includeSubdomains="true">21cn.com</domain>
+    </domain-config>
+</network-security-config>

@@ -1,0 +1,74 @@
+source 'https://cdn.cocoapods.org/'
+
+platform :ios, '14.1'
+
+# CocoaPods 统计会同步联网，关掉以免拖慢 pod install。
+ENV['COCOAPODS_DISABLE_STATS'] = 'true'
+
+$ios_deployment_target = '14.1'
+
+# 读取根目录 gradle.properties，保证渲染器版本与 KMP 侧（Android / 鸿蒙）一致。
+def sondo_gradle_property(name, fallback)
+  path = File.expand_path(File.join('..', '..', 'gradle.properties'), __FILE__)
+  return fallback unless File.exist?(path)
+  # gradle.properties 里有中文注释：显式按 UTF-8 读取，不依赖终端的 LANG 设置。
+  File.foreach(path, :encoding => 'UTF-8') do |line|
+    match = line.scrub.match(/^\s*#{Regexp.escape(name)}\s*=\s*(\S+)\s*$/)
+    return match[1] if match
+  end
+  fallback
+rescue StandardError
+  fallback
+end
+
+# OpenKuiklyIOSRender 的 pod 版本号就是 KUIKLY_VERSION 本身（不带 Kotlin 版本后缀）。
+$kuikly_version = sondo_gradle_property('KUIKLY_VERSION', '2.30.0')
+
+target 'iosApp' do
+  # 静态 framework：Kotlin 产物 shared.framework 本身是静态库，微信 / 极光 / 友盟等 SDK 也是静态库，
+  # 统一静态链接可以避免「动态 framework 依赖静态库」的重复符号问题。
+  use_frameworks! :linkage => :static
+  inhibit_all_warnings!
+
+  # --- kuikly ---
+  # 业务代码（Kotlin Multiplatform）。shared.podspec 由 `./gradlew :shared:podspec` 生成，见 iosApp/README.md。
+  pod 'shared', :path => '../shared'
+  # Kuikly iOS 渲染器
+  pod 'OpenKuiklyIOSRender', $kuikly_version
+  # 图片加载适配器
+  pod 'SDWebImage', '~> 5.20'
+  # --- end kuikly ---
+
+  # --- media pods ---
+  # Lottie 动画（原生视图 SDLottieView）。4.x 最低支持 iOS 13，API 为 LottieAnimationView / LottieAnimation。
+  pod 'lottie-ios', '~> 4.4'
+  # --- end media pods ---
+
+  # --- sdk pods ---
+  # 版本与参考工程（Flutter）各插件的 podspec / Podfile 保持一致。
+  # 微信 OpenSDK，只用授权登录（fluwx 6.0.2）
+  pod 'WechatOpenSDK-XCFramework', '~> 2.0.5'
+  # 极光：JCore 基础库 + 推送（jpush_flutter 3.5.8）+ 一键登录（jverify 3.1.8）
+  pod 'JCore', '> 5.5.0'
+  pod 'JPush', '6.2.6'
+  pod 'JVerification', '3.4.7'
+  # 友盟统计基础组件（umeng_common_sdk 1.3.1；不集成 U-Link）
+  pod 'UMCommon', '7.6.8'
+  pod 'UMDevice', '3.6.0'
+  # --- end sdk pods ---
+end
+
+post_install do |installer|
+  installer.pods_project.targets.each do |target|
+    target.build_configurations.each do |config|
+      # 统一最低系统版本，避免旧 pod 的 deployment target 低于 Xcode 支持范围而告警 / 报错。
+      current = config.build_settings['IPHONEOS_DEPLOYMENT_TARGET']
+      if current.nil? || Gem::Version.new(current.to_s) < Gem::Version.new($ios_deployment_target)
+        config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = $ios_deployment_target
+      end
+      # Kotlin CocoaPods 的 Gradle 脚本阶段需要读写工程目录。
+      config.build_settings['ENABLE_USER_SCRIPT_SANDBOXING'] = 'NO'
+      config.build_settings['ENABLE_BITCODE'] = 'NO'
+    end
+  end
+end

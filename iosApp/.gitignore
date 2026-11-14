@@ -1,0 +1,11 @@
+# CocoaPods
+Pods/
+
+# Xcode
+build/
+DerivedData/
+xcuserdata/
+*.xcuserstate
+*.xcworkspace/xcuserdata/
+
+# Kotlin CocoaPods 生成物（在 shared/ 下）：shared.podspec、build/cocoapods/**

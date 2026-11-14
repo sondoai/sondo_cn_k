@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 极光一键登录底部弹窗的背景：上圆角深色底，顶部居中一条拖动条。 -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#1C1C1C" />
+            <corners
+                android:topLeftRadius="24dp"
+                android:topRightRadius="24dp" />
+        </shape>
+    </item>
+    <item
+        android:width="40dp"
+        android:height="6dp"
+        android:top="10dp"
+        android:gravity="top|center_horizontal">
+        <shape android:shape="rectangle">
+            <solid android:color="#1AFFFFFF" />
+            <corners android:radius="3dp" />
+        </shape>
+    </item>
+</layer-list>

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 极光一键登录弹窗的主按钮背景：常态 / 按下 / 不可点。按名字交给极光 SDK（setLogBtnImgPath）。 -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@drawable/jv_btn_unable" android:state_enabled="false" />
+    <item android:drawable="@drawable/jv_btn_pressed" android:state_pressed="true" />
+    <item android:drawable="@drawable/jv_btn_normal" />
+</selector>

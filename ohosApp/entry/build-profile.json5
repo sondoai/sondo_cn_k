@@ -1,0 +1,63 @@
+{
+  "apiType": "stageMode",
+  "buildOption": {
+    "externalNativeOptions": {
+      "path": "./src/main/cpp/CMakeLists.txt",
+      "arguments": "",
+      "cppFlags": "",
+      // libshared.so 只产出 arm64-v8a（Kotlin/Native ohosArm64）
+      "abiFilters": [
+        "arm64-v8a"
+      ]
+    },
+    "arkOptions": {
+      // 注入到 BuildProfile（ets 里 import BuildProfile from 'BuildProfile'），见 kuikly/AppConfig.ets。
+      // 对应 Android 的 -PAPI_ENV / -PSHOW_TOKEN_EDITOR、Flutter 的 --dart-define。
+      "buildProfileFields": {
+        "API_ENV": "prod",
+        "SHOW_TOKEN_EDITOR": false
+      }
+    }
+  },
+  "buildOptionSet": [
+    {
+      "name": "release",
+      "arkOptions": {
+        "obfuscation": {
+          "ruleOptions": {
+            "enable": true,
+            "files": [
+              "./obfuscation-rules.txt"
+            ]
+          }
+        }
+      },
+      "nativeLib": {
+        "debugSymbol": {
+          "strip": true
+        }
+      }
+    },
+    {
+      "name": "debug",
+      "arkOptions": {
+        "obfuscation": {
+          "ruleOptions": {
+            "enable": false,
+            "files": []
+          }
+        }
+      },
+      "nativeLib": {
+        "debugSymbol": {
+          "strip": false
+        }
+      }
+    }
+  ],
+  "targets": [
+    {
+      "name": "default"
+    }
+  ]
+}

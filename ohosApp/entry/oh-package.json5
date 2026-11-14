@@ -1,0 +1,26 @@
+{
+  "name": "entry",
+  "version": "1.0.0",
+  "description": "Sondo entry module.",
+  "main": "",
+  "author": "",
+  "license": "",
+  "dependencies": {
+    // Kuikly 鸿蒙渲染器：版本必须与根目录 gradle.properties 的 KUIKLY_VERSION 一致
+    "@kuikly-open/render": "2.30.0",
+    "libkuikly_entry.so": "file:./src/main/cpp/types/kuikly_entry",
+    // --- media ---
+    // Lottie 动画（views/SDLottieView，Canvas 渲染）；release 混淆失败时在 obfuscation-rules.txt 加 -keep ./oh_modules/@ohos/lottie
+    "@ohos/lottie": "^2.0.14",
+    // --- sdk ---（版本取自各 SDK 已核对过调用方式的版本，升级前先看 ets/kuikly/modules/sdk/README.md）
+    // 支付宝收银台（SDPayModule.alipayPay）；15.8.38 起要求 API 13，工程最低 API 12，所以钉死 15.8.37
+    "@cashier_alipay/cashiersdk": "15.8.37",
+    // 微信 OpenSDK（SDAuthModule.wechat*，仅授权登录）
+    "@tencent/wechat_open_sdk": "1.0.15",
+    // 极光推送（SDPushModule）；1.4.x 的 getRegistrationId / setClickWant 签名与 1.3.x 不同，钉死版本
+    "@jg/push": "1.4.2",
+    // 友盟统计（SDAnalyticsModule）
+    "@umeng/common": "^1.1.12",
+    "@umeng/analytics": "^1.2.12"
+  }
+}

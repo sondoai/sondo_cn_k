@@ -1,0 +1,8 @@
+# Sondo entry 模块混淆规则（仅 release 生效，见 build-profile.json5）。
+#
+# 说明：https://developer.huawei.com/consumer/cn/doc/harmonyos-guides/source-obfuscation
+#
+# 默认只做局部变量 / 参数名混淆。Kuikly 模块通过字符串方法名分发（call(method, …)），
+# JSON 字段通过 Record 下标访问，都不依赖属性名，因此不需要额外 keep。
+# 如需开启属性 / 顶层混淆（-enable-property-obfuscation / -enable-toplevel-obfuscation），
+# 请先为三方 SDK 的回调对象补充 -keep-property-name。

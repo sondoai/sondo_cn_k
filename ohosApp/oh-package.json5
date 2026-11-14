@@ -1,0 +1,13 @@
+{
+  "modelVersion": "5.0.0",
+  "name": "sondo",
+  "version": "1.0.0",
+  "description": "Sondo HarmonyOS host app (Kuikly container).",
+  "main": "",
+  "author": "",
+  "license": "",
+  "dependencies": {
+  },
+  "devDependencies": {
+  }
+}
