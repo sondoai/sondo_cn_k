@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- 仅调试包：DevTools 通过 adb reverse 的 127.0.0.1 或开发机局域网地址上报页面数据。 -->
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

@@ -5,6 +5,8 @@ build/
 local.properties
 *.iml
 .DS_Store
+.devtools/
+shared/shared.podspec
 captures/
 .externalNativeBuild/
 .cxx/

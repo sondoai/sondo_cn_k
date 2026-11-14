@@ -29,6 +29,29 @@ node?.afterNodeEvaluate((n: HvigorNode) => {
   console.log(`[sondo] buildProfileFields API_ENV=${fields['API_ENV']} SHOW_TOKEN_EDITOR=${fields['SHOW_TOKEN_EDITOR']}`);
 });
 
+// 构建时显式开启，配置只驻留内存，不重写签名文件或Release依赖。
+hvigor.afterNodeEvaluate((node) => {
+  if (node.getNodeName() !== 'entry' || process.env.SONDO_KUIKLY_HOT_RELOAD !== '1') return;
+  const context = node.getContext(OhosPluginId.OHOS_HAP_PLUGIN) as OhosHapContext;
+  if (context.getBuildMode() !== 'debug') {
+    throw new Error('SONDO_KUIKLY_HOT_RELOAD can only be enabled for a debug build');
+  }
+  const url = process.env.SONDO_HOT_RELOAD_URL || 'http://127.0.0.1:8088';
+  if (!/^https?:\/\/[a-zA-Z0-9.:[\]-]+\/?$/.test(url)) {
+    throw new Error('SONDO_HOT_RELOAD_URL must be an HTTP origin, for example http://192.168.1.8:8088');
+  }
+  const profile = context.getBuildProfileOpt();
+  const option = profile.buildOption!;
+  option.externalNativeOptions!.arguments =
+    `${option.externalNativeOptions!.arguments || ''} -DSONDO_KUIKLY_HOT_RELOAD=ON`;
+  option.arkOptions!.buildProfileFields = {
+    ...option.arkOptions!.buildProfileFields,
+    KUIKLY_HOT_RELOAD: true,
+    KUIKLY_HOT_RELOAD_URL: url.replace(/\/$/, '')
+  };
+  context.setBuildProfileOpt(profile);
+});
+
 export default {
   system: hapTasks, /* Built-in plugin of Hvigor. It cannot be modified. */
   plugins: []       /* Custom plugin to extend the functionality of Hvigor. */

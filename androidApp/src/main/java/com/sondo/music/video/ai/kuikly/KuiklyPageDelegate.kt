@@ -34,7 +34,7 @@ class KuiklyPageDelegate(
             }
 
             override fun coreExecuteModeX(): KuiklyRenderCoreExecuteModeBase {
-                return KuiklyRenderCoreExecuteModeBase.JVM
+                return KuiklyHotReload.executeMode()
             }
 
             override fun onUnhandledException(

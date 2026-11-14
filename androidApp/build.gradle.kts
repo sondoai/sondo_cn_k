@@ -22,6 +22,7 @@ android {
 
         buildConfigField("String", "API_ENV", "\"${property("API_ENV")}\"")
         buildConfigField("boolean", "SHOW_TOKEN_EDITOR", "${property("SHOW_TOKEN_EDITOR")}")
+        buildConfigField("String", "SONDO_HOT_RELOAD_URL", "\"\"")
 
         // 极光（推送 + 一键登录）。极光认证 Android 只读清单里的 AppKey，不读运行时传入的值；
         // 必须与 shared 的 AppConstants.jpushAppKey / jverifyAppKey 保持一致。
@@ -58,6 +59,10 @@ android {
         getByName("debug") {
             isMinifyEnabled = false
             signingConfig = releaseSigning
+            val hotReloadUrl = providers.gradleProperty("sondo.hotReloadUrl").orElse("").get()
+                .replace("\\", "\\\\").replace("\"", "\\\"")
+                .replace("\n", "\\n").replace("\r", "\\r")
+            buildConfigField("String", "SONDO_HOT_RELOAD_URL", "\"$hotReloadUrl\"")
         }
         getByName("release") {
             isMinifyEnabled = true

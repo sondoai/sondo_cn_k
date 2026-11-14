@@ -38,6 +38,7 @@ open class KuiklyRenderActivity : AppCompatActivity() {
     private var containerView: ViewGroup? = null
     private var delegator: KuiklyRenderViewBaseDelegator? = null
     private var pageDelegate: KuiklyPageDelegate? = null
+    private var renderResumed = false
 
     val pageName: String
         get() = intent?.getStringExtra(KEY_PAGE_NAME)?.takeIf { it.isNotEmpty() } ?: DEFAULT_PAGE
@@ -106,6 +107,7 @@ open class KuiklyRenderActivity : AppCompatActivity() {
 
         ActivityStack.register(this)
         renderDelegator.onAttach(container, "", pageName, createPageData())
+        KuiklyHotReload.register(this)
     }
 
     /**
@@ -135,10 +137,12 @@ open class KuiklyRenderActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        renderResumed = true
         delegator?.onResume()
     }
 
     override fun onPause() {
+        renderResumed = false
         super.onPause()
         delegator?.onPause()
     }
@@ -245,6 +249,27 @@ open class KuiklyRenderActivity : AppCompatActivity() {
     // ------------------------------------------------------------------ 内部
 
     protected open fun onKuiklyPageLoaded() = Unit
+
+    /** 开发热重载先销毁整个页面栈，再按根页面到当前路由的顺序挂载新业务代码。 */
+    internal fun detachForHotReload() {
+        delegator?.onPause()
+        delegator?.onDetach()
+        delegator = null
+        pageDelegate = null
+        containerView?.removeAllViews()
+    }
+
+    internal fun attachForHotReload() {
+        if (leaving || isFinishing || isDestroyed) return
+        val container = containerView ?: return
+        backEnabled = true
+        val page = KuiklyPageDelegate(this, pageName) { onKuiklyPageLoaded() }
+        pageDelegate = page
+        val renderDelegator = page.createDelegator()
+        delegator = renderDelegator
+        renderDelegator.onAttach(container, "", pageName, createPageData())
+        if (renderResumed) renderDelegator.onResume() else renderDelegator.onPause()
+    }
 
     private fun createPageData(): Map<String, Any> {
         val param: MutableMap<String, Any> = try {

@@ -26,11 +26,28 @@ val hasXcode: Boolean by lazy {
     }
 }
 val enableIos = (findProperty("sondo.enableIos") as String?)?.toBoolean() ?: hasXcode
+// 开发热重载才启用 Kotlin/JS；正常 Android / iOS 构建不解析 JS 工具链。
+val enableHotReload = (findProperty("sondo.hotReload") as String?)?.toBoolean() ?: false
 
 kotlin {
     androidTarget {
         compilations.all {
             kotlinOptions { jvmTarget = "17" }
+        }
+    }
+
+    if (enableHotReload) {
+        js(IR) {
+            moduleName = "sondo"
+            browser {
+                webpackTask { outputFileName = "sondo.js" }
+                commonWebpackConfig {
+                    output?.library = "SondoHotReload"
+                    output?.libraryTarget = "var"
+                    devtool = "source-map"
+                }
+            }
+            binaries.executable()
         }
     }
 
@@ -75,6 +92,9 @@ kotlin {
 dependencies {
     val kspDep = "com.tencent.kuikly-open:core-ksp:$kuiklyVersion"
     add("kspAndroid", kspDep)
+    if (enableHotReload) {
+        add("kspJs", kspDep)
+    }
     if (enableIos) {
         add("kspIosArm64", kspDep)
         add("kspIosX64", kspDep)

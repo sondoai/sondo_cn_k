@@ -15,7 +15,9 @@
       // 对应 Android 的 -PAPI_ENV / -PSHOW_TOKEN_EDITOR、Flutter 的 --dart-define。
       "buildProfileFields": {
         "API_ENV": "prod",
-        "SHOW_TOKEN_EDITOR": false
+        "SHOW_TOKEN_EDITOR": false,
+        "KUIKLY_HOT_RELOAD": false,
+        "KUIKLY_HOT_RELOAD_URL": "http://127.0.0.1:8088"
       }
     }
   },

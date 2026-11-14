@@ -3,6 +3,32 @@
 业务 UI 与逻辑全部在跨端模块 `shared`（Kotlin Multiplatform + Kuikly）。这个工程只负责：
 承载 Kuikly 页面的原生容器、Kuikly 要求宿主实现的适配器、以及 `shared/.../nativeapi/` 约定的原生模块 / 原生视图。
 
+## 开发阶段热重载
+
+项目的 Debug 宿主可选用 JavaScriptCore 执行同一份 `shared` Kotlin 编译出的 JS，接收本机开发服务发布的新版本后，自动重建已打开的 Kuikly 页面。应用进程不重启；页面内存状态会重置。它使用公开的 Kuikly 2.30 执行环境协议实现，不依赖未开源的动态化 SDK。
+
+```bash
+# 在工程根目录运行：首次编译，然后监听 shared Kotlin 文件保存
+./dev.sh ios
+# 同时调试 Android / iOS / 鸿蒙时使用 ./dev.sh all
+```
+
+首次需要按下文安装 Pods 并用 Xcode 编译一次 Debug 宿主。在 Xcode 的 **Product → Scheme → Edit Scheme → Run → Arguments → Environment Variables** 添加：
+
+```text
+SONDO_HOT_RELOAD_URL=http://192.168.10.174:8088
+```
+
+把 IP 换成开发电脑当前的局域网 IP，手机与电脑需互通，首次连接时允许系统的「本地网络」权限。模拟器可使用 `http://127.0.0.1:8088`。也可通过构建参数 `SD_HOT_RELOAD_URL=http://电脑IP:8088` 写入 Info.plist；进程环境变量优先。
+
+启动 App 后，修改 `shared/src` 下的 Kotlin 文件并保存，开发服务成功编译并发布 `iosVersion` 后，宿主会在约一秒的轮询间隔内下载 JS 并刷新页面。编译失败时继续运行上一次成功产物，控制台输出错误。初次尚无产物时等待服务就绪后重试。
+
+未配置地址时 Debug 继续使用原有 `shared.framework`；Release 编译排除 JavaScriptCore 热重载执行器、网络轮询和重建代码。修改 Swift / Objective-C 原生模块、Pod 依赖或原生资源仍需用 Xcode 重新构建宿主。
+
+已用实际编译出的完整 JS bundle 验证 JavaScriptCore 桥接、双页面共享单例环境、页面销毁、进程内切换新代码及错误产物拒绝；iOS 宿主改动已用 Apple iOS Simulator SDK 和 Kuikly 官方 2.30 头文件做 Debug / Release 类型检查。完整 App 的设备运行仍需完成首次 CocoaPods 集成和签名。
+
+可在 macOS 上复跑真实 JS 执行器检查：`bash iosApp/tests/check-hot-reload-runtime.sh`。它加载已编译的 `sondo.js`，用测试原生回调接收实际页面的渲染指令，不替代真机 UI 验证。
+
 ## 构建
 
 环境：完整 Xcode 16+（工程用了文件夹同步分组，`objectVersion = 77`）、CocoaPods ≥ 1.16.2（xcodeproj ≥ 1.27，

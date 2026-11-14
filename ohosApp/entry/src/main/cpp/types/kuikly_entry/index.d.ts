@@ -7,3 +7,6 @@
  * 返回值交给 KuiklyNativeManager.loadNative()。
  */
 export const initKuikly: () => number;
+
+/** 只存在于显式开启热重载的Debug原生库；先验证新bundle，再原子切换新页面的执行器。 */
+export const setHotReloadBundle: (version: string, source: string) => Promise<boolean>;

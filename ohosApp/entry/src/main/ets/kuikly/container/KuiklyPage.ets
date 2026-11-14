@@ -13,6 +13,7 @@ import {
 import { AppConfig } from '../AppConfig';
 import { KuiklyViewDelegate } from '../KuiklyViewDelegate';
 import globalNativeManager from '../MyNativeManager';
+import { HotReloadListener, SondoHotReload } from '../hotreload/SondoHotReload';
 import { AppEvent, AppEventListener, AppEvents } from '../support/AppEvents';
 import { SD, SDLog } from '../support/SDModuleSupport';
 import { SDNavigator, SDPageEntry, SDStackListener } from './SDNavigator';
@@ -28,6 +29,8 @@ export struct KuiklyPage {
 
   @State private offsetY: number = 0;
   @State private contentOpacity: number = 1;
+  @State private renderReady: boolean = !SondoHotReload.enabled;
+  @State private renderGeneration: number = 0;
 
   private entry: SDPageEntry = new SDPageEntry(0, AppConfig.ROOT_PAGE, {}, SDPageEntry.TRANSITION_NONE, false);
   private delegate: KuiklyViewDelegate = new KuiklyViewDelegate();
@@ -37,6 +40,21 @@ export struct KuiklyPage {
   /** 是否已向 Kuikly 发送 pageDidAppear（显示中且位于栈顶） */
   private active: boolean = false;
   private entered: boolean = false;
+  private loadedVersion: string = '';
+  private reloadListener: HotReloadListener = (version: string) => {
+    if (version === this.loadedVersion) return;
+    this.loadedVersion = version;
+    if (this.active) {
+      this.active = false;
+      this.delegate.pageDidDisappear();
+    }
+    this.entry.controller = null;
+    this.entry.attached = false;
+    this.controller = null;
+    this.delegate = new KuiklyViewDelegate();
+    this.renderGeneration++;
+    this.renderReady = true;
+  };
   private stackListener: SDStackListener = () => {
     this.updateActive();
   };
@@ -65,9 +83,11 @@ export struct KuiklyPage {
     SDNavigator.shared().addStackListener(this.stackListener);
     AppEvents.on(AppEvents.FOREGROUND, this.appStateListener);
     AppEvents.on(AppEvents.BACKGROUND, this.appStateListener);
+    SondoHotReload.subscribe(this.reloadListener);
   }
 
   aboutToDisappear(): void {
+    SondoHotReload.unsubscribe(this.reloadListener);
     SDNavigator.shared().removeStackListener(this.stackListener);
     AppEvents.off(AppEvents.FOREGROUND, this.appStateListener);
     AppEvents.off(AppEvents.BACKGROUND, this.appStateListener);
@@ -85,6 +105,9 @@ export struct KuiklyPage {
   build() {
     NavDestination() {
       Stack({ alignContent: Alignment.TopStart }) {
+        if (this.renderReady) {
+          // key变化销毁旧容器并创建新Pager，进程、原生导航栈和宿主能力持续存活。
+          ForEach([this.renderGeneration], (generation: number) => {
         Kuikly({
           pageName: this.entry.pageName,
           pageData: this.entry.pageData,
@@ -96,6 +119,18 @@ export struct KuiklyPage {
           },
           nativeManager: globalNativeManager
         })
+          }, (generation: number) => generation.toString())
+        } else {
+          Column({ space: 16 }) {
+            Text('等待开发服务生成 Kuikly 页面…')
+              .fontColor(Color.White)
+            Button('重新连接')
+              .onClick(() => { SondoHotReload.refresh(); })
+          }
+          .width('100%')
+          .height('100%')
+          .justifyContent(FlexAlign.Center)
+        }
       }
       .width('100%')
       .height('100%')
@@ -131,6 +166,7 @@ export struct KuiklyPage {
     controller.registerExceptionCallback((executeMode: KRRenderExecuteModeBase, stack: string) => {
       this.logException(stack);
     });
+    this.updateActive();
   }
 
   /**

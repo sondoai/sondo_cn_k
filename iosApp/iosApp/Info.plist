@@ -66,6 +66,8 @@
 	<string>相机用于拍照，你可以选择将照片上传到应用以创作音乐视频。</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>麦克风用于录制音频，你可以选择将录音上传到应用以生成音乐。</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>开发调试时连接电脑上的 Kuikly 热重载与调试服务。</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>此权限允许你将应用中下载的音乐视频保存到相册。</string>
 	<key>NSPhotoLibraryUsageDescription</key>
@@ -76,6 +78,8 @@
 	<string>$(SD_API_ENV)</string>
 	<key>SDAppStoreId</key>
 	<string>6751086438</string>
+	<key>SDHotReloadURL</key>
+	<string>$(SD_HOT_RELOAD_URL)</string>
 	<key>SDShowTokenEditor</key>
 	<string>$(SD_SHOW_TOKEN_EDITOR)</string>
 	<key>SKIncludeConsumableInAppPurchaseHistory</key>

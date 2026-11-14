@@ -40,6 +40,36 @@ Kuikly 页面的鸿蒙（HarmonyOS NEXT / ArkTS）承载工程。业务 UI 与�
 
 4. 选择 `entry` 运行。
 
+### 开发阶段 Kotlin 页面热重载（不重启应用）
+
+项目提供单独的 Debug JSVM 宿主，保留现有鸿蒙原生渲染器、导航与 `SD*Module`。
+Kotlin/JS bundle 由工程根目录的 `scripts/hot-reload.mjs` 编译并在端口 `8088` 提供；
+页面每秒检查版本，编译成功后只销毁并重建 Kuikly Pager，不重新安装 HAP 或退出应用。
+页面临时状态会重新初始化，同一 bundle 版本的页面共享 Kotlin 单例。
+
+首次构建和安装开发宿主：
+
+```bash
+# 项目根目录。真机局域网连接时，替换成开发电脑可达的地址。
+SONDO_HOT_RELOAD_URL=http://192.168.1.8:8088 bash scripts/ohos-hot-reload-build.sh
+```
+
+使用本机 `127.0.0.1` 地址时，可对已经连接的设备建立端口反向映射：
+
+```bash
+HDC=/Applications/DevEco-Studio.app/Contents/sdk/default/openharmony/toolchains/hdc
+"$HDC" list targets
+"$HDC" rport tcp:8088 tcp:8088
+"$HDC" install -r ohosApp/entry/build/hotReload/outputs/default/entry-default-signed.hap
+"$HDC" shell aa start -a EntryAbility -b com.sondo.music.video.ai
+```
+
+此构建脚本只为本次 Debug 构建注入 `SONDO_KUIKLY_HOT_RELOAD=1` 和服务地址，不写签名文件。
+开发包通过 Kuikly `2.30.0` 已有的 `com_tencent_kuikly_SetCallKotlin` /
+`com_tencent_kuikly_CallNative` C ABI 接入系统 JSVM，不需要修改或重新发布渲染器 HAR，
+也不依赖 Native 业务产物 `libshared.so`。默认构建仍使用 Kotlin/Native；Release 构建禁止开启此选项。
+新增或修改原生模块、视图、权限后需要重新构建安装开发宿主。
+
 ### 环境开关
 
 | 开关 | 位置 | 说明 |

@@ -18,7 +18,11 @@
 #include <Kuikly/Kuikly.h>
 
 #include "napi/native_api.h"
+#ifdef SONDO_KUIKLY_HOT_RELOAD
+#include "hotreload/SondoHotReload.h"
+#else
 #include "thirdparty/biz_entry/libshared_api.h"
+#endif
 
 namespace {
 
@@ -109,8 +113,12 @@ napi_value InitKuikly(napi_env env, napi_callback_info info) {
 
     // 入口符号由 Kotlin/Native 产物头文件 libshared_api.h 决定：
     // KSP 生成的 initKuikly 位于根包，因此是 kotlin.root.initKuikly。
+#ifdef SONDO_KUIKLY_HOT_RELOAD
+    int handler = SondoInstallHotReloadBridge();
+#else
     auto api = libshared_symbols();
     int handler = api->kotlin.root.initKuikly();
+#endif
     napi_value result = nullptr;
     napi_create_int32(env, handler, &result);
     return result;
@@ -124,6 +132,9 @@ static napi_value Init(napi_env env, napi_value exports) {
         {"initKuikly", nullptr, InitKuikly, nullptr, nullptr, nullptr, napi_default, nullptr},
     };
     napi_define_properties(env, exports, sizeof(desc) / sizeof(desc[0]), desc);
+#ifdef SONDO_KUIKLY_HOT_RELOAD
+    SondoExportHotReload(env, exports);
+#endif
     return exports;
 }
 EXTERN_C_END

@@ -2,6 +2,9 @@
 #import "SDKuiklyAdapters.h"
 #import <OpenKuiklyIOSRender/KuiklyRenderViewControllerBaseDelegator.h>
 #import <OpenKuiklyIOSRender/KuiklyRenderContextProtocol.h>
+#if DEBUG
+#import "SDHotReload.h"
+#endif
 
 NSString *const SDKuiklyPageStackDidChangeNotification = @"SDKuiklyPageStackDidChangeNotification";
 
@@ -35,7 +38,11 @@ static NSString *const kSDKuiklyFrameworkName = @"shared";
         _swipeBackEnabled = YES;
         _statusBarStyle = UIStatusBarStyleLightContent;
 
-        _delegator = [[KuiklyRenderViewControllerBaseDelegator alloc] initWithPageName:_pageName
+        Class delegatorClass = KuiklyRenderViewControllerBaseDelegator.class;
+#if DEBUG
+        if (SDHotReload.shared.enabled) delegatorClass = SDHotReloadDelegator.class;
+#endif
+        _delegator = [[delegatorClass alloc] initWithPageName:_pageName
                                                                                 pageData:[self sd_mergedPageData]];
         _delegator.delegate = self;
     }
@@ -97,8 +104,39 @@ static NSString *const kSDKuiklyFrameworkName = @"shared";
 - (void)viewDidLoad {
     [super viewDidLoad];
     self.view.backgroundColor = _sdTranslucent ? [UIColor clearColor] : [UIColor blackColor];
+#if DEBUG
+    if (SDHotReload.shared.enabled) {
+        [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(sd_hotReload:)
+                                                   name:SDHotReloadDidUpdateNotification object:nil];
+    }
+#endif
     [_delegator viewDidLoadWithView:self.view];
 }
+
+#if DEBUG
+- (void)sd_hotReload:(NSNotification *)notification {
+    BOOL isRoot = [self.pageName isEqualToString:@"launch"];
+    if (isRoot != [notification.userInfo[@"rootOnly"] boolValue] || !self.isViewLoaded) return;
+    BOOL appeared = _visible && !_coveredByTranslucentPage;
+    if (appeared) {
+        [_delegator viewWillDisappear];
+        [_delegator viewDidDisappear];
+    }
+    [_delegator.renderView removeFromSuperview];
+    _delegator = nil;
+    // 加载失败时的 loading/error view 也属于旧执行环境。
+    for (UIView *subview in self.view.subviews.copy) [subview removeFromSuperview];
+    _handlingBack = NO;
+    _delegator = [[SDHotReloadDelegator alloc] initWithPageName:_pageName pageData:[self sd_mergedPageData]];
+    _delegator.delegate = self;
+    [_delegator viewDidLoadWithView:self.view];
+    [_delegator viewDidLayoutSubviews];
+    if (appeared) {
+        [_delegator viewWillAppear];
+        [_delegator viewDidAppear];
+    }
+}
+#endif
 
 - (void)viewDidLayoutSubviews {
     [super viewDidLayoutSubviews];
@@ -226,6 +264,14 @@ static NSString *const kSDKuiklyFrameworkName = @"shared";
 #pragma mark - KuiklyRenderViewControllerBaseDelegatorDelegate
 
 - (void)fetchContextCodeWithPageName:(NSString *)pageName resultCallback:(KuiklyContextCodeCallback)callback {
+#if DEBUG
+    if (SDHotReload.shared.enabled) {
+        [SDHotReload.shared fetchScript:^(NSData *script, NSError *error) {
+            if (callback) callback(script, error);
+        }];
+        return;
+    }
+#endif
     if (callback) {
         callback(kSDKuiklyFrameworkName, nil);
     }
