@@ -136,7 +136,7 @@ class MainMorphingNavBarView : ComposeView<MainMorphingNavBarAttr, MainMorphingN
         notifyRefs.add(
             Events.PLAYER_POSITION to notify.addNotify(Events.PLAYER_POSITION) {
                 if (!alive || it == null) return@addNotify
-                if (it.optBoolean("isMainTrack", true)) progress = it.jDbl("progress", 0.0).toFloat()
+                if (it.optBoolean("isMainTrack", true)) applyProgress(it.jDbl("progress", 0.0).toFloat())
             },
         )
     }
@@ -167,16 +167,36 @@ class MainMorphingNavBarView : ComposeView<MainMorphingNavBarAttr, MainMorphingN
         mainTrackSuspended = json.jBool("isMainTrackSuspended", false)
         // 试听占用播放器时 isPlaying 是试听的状态，胶囊只反映主音轨
         isPlaying = mainTrackActive && json.jBool("isPlaying", false)
-        progress = json.jDbl("progress", 0.0).toFloat()
+        applyProgress(json.jDbl("progress", 0.0).toFloat())
         // didUpdateWidget：换歌时复位拖动；没有播放器时的复位放在胶囊真正隐藏时（见 syncShowPlayer）
         val id: Long? = if (hasPlayer) songId else null
         val songChanged = lastSongId != null && id != null && id != lastSongId
         if (songChanged) {
             dragOffset = 0f
             totalDragDelta = 0f
+            holdProgress = false
         }
         if (id != null) lastSongId = id
         syncShowPlayer()
+    }
+
+    /**
+     * 主音轨被试听挂起期间、以及恢复后播放器从 0 seek 回原位置之前，进度环保持原值：
+     * 否则返回首页时进度环会先清零一下再回来。
+     */
+    private var holdProgress = false
+
+    private fun applyProgress(value: Float) {
+        if (!mainTrackActive) {
+            if (mainTrackSuspended) holdProgress = true
+            if (!holdProgress) progress = value
+            return
+        }
+        if (holdProgress) {
+            if (value <= 0f) return
+            holdProgress = false
+        }
+        progress = value
     }
 
     private fun syncShowPlayer() {
