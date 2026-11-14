@@ -8,7 +8,7 @@ import crypto from 'node:crypto';
 import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-export const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+export const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const work = path.join(root, '.devtools', 'hot-reload');
 const artifacts = path.join(work, 'artifacts');
 const manifestPath = path.join(work, 'manifest.json');

@@ -2,7 +2,7 @@
 # 构建开发期JSVM宿主；只需首次安装或原生能力变动时重建，Kotlin改动由hot-reload.mjs处理。
 set -euo pipefail
 
-SONDO_PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SONDO_PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SONDO_DEVECO_DIR="${SONDO_DEVECO_DIR:-/Applications/DevEco-Studio.app/Contents}"
 export DEVECO_SDK_HOME="$SONDO_DEVECO_DIR/sdk"
 export JAVA_HOME="$SONDO_DEVECO_DIR/jbr/Contents/Home"

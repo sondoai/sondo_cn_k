@@ -3,7 +3,7 @@
 #   getCOSToken → 上传到 COS → buildInfo 轮询直到发布完成 →（鸿蒙）uploadHarmonyCert 上传 p12 供蒲公英签 manifest
 # 由 build_app.sh source；需要 common.sh 的 log/die。
 #
-# 配置（scripts/build.local.sh）：
+# 配置（scripts/build/build.local.sh）：
 #   PGYER_API_KEY          必填
 #   PGYER_INSTALL_TYPE     1=公开 2=密码 3=邀请，默认 2
 #   PGYER_PASSWORD         安装密码（INSTALL_TYPE=2 时）
@@ -31,7 +31,7 @@ print(obj if not isinstance(obj, (dict, list)) else json.dumps(obj))
 
 pgyer_require_key() {
   if [[ -z "${PGYER_API_KEY:-}" ]]; then
-    die "未配置蒲公英 API Key：复制 scripts/build.local.sh.example 为 scripts/build.local.sh 并填写 PGYER_API_KEY"
+    die "未配置蒲公英 API Key：复制 scripts/build/build.local.sh.example 为 scripts/build/build.local.sh 并填写 PGYER_API_KEY"
   fi
 }
 

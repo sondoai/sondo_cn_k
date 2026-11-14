@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<!-- scripts/build_app.sh 的 iOS 内测导出（蒲公英）。签名与工程一致：自动签名、Team XR9PF858VF。
+<!-- scripts/build/build_app.sh 的 iOS 内测导出（蒲公英）。签名与工程一致：自动签名、Team XR9PF858VF。
      要导出 App Store 包时另写一份 method=app-store-connect，用 IOS_EXPORT_OPTIONS 指定。 -->
 <plist version="1.0">
 <dict>

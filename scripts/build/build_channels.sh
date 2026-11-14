@@ -2,11 +2,11 @@
 #
 # Android 渠道包（两步，流程同参考工程 ../sondo_cn/scripts/build_channels.sh）：
 #   1) 打母包（assembleRelease，已用 androidApp/key 正式签名，v1+v2）
-#        ./scripts/build_channels.sh --build
-#        ./scripts/build_channels.sh --build --env test
+#        ./scripts/build/build_channels.sh --build
+#        ./scripts/build/build_channels.sh --build --env test
 #   2) 对签名包写渠道（母包可直接用；要加固就先在外部工具加固并重签，再传加固包）
-#        ./scripts/build_channels.sh --signed dist/channels/sondo-2.3.2-prod-mother.apk
-#        ./scripts/build_channels.sh --signed xxx_signed.apk --channels official,huawei
+#        ./scripts/build/build_channels.sh --signed dist/channels/sondo-2.3.2-prod-mother.apk
+#        ./scripts/build/build_channels.sh --signed xxx_signed.apk --channels official,huawei
 #
 # Walle 把渠道写进已有的 v2 签名块，输入必须是已签名包。写完从 padding 扣回 4096 对齐：
 # Walle 1.1.6 会把签名块撑大，Android 11+ 要求签名块是 4096 的整数倍，否则 INSTALL_PARSE_FAILED_NO_CERTIFICATES。
@@ -16,12 +16,12 @@
 #   --env prod|test|local   仅 --build 使用，默认 prod
 #   --out <目录>            默认 dist/channels
 #   CHANNEL_LIST_FILE       默认 androidApp/channel_list
-#   Walle：tools/walle/walle-cli-all.jar，缺失时自动执行 scripts/download_walle.sh
+#   Walle：tools/walle/walle-cli-all.jar，缺失时自动执行 scripts/build/download_walle.sh
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 cd "$ROOT_DIR"
 # shellcheck source=lib/common.sh
 source "$SCRIPT_DIR/lib/common.sh"
@@ -75,7 +75,7 @@ build_mother() {
   log "母包: $mother"
   echo ""
   echo "下一步（不加固可直接用母包；加固则先外部加固并重签）："
-  echo "  ./scripts/build_channels.sh --signed $mother"
+  echo "  ./scripts/build/build_channels.sh --signed $mother"
 }
 
 ########################################
@@ -124,7 +124,7 @@ ensure_walle() {
     log "未找到 Walle，自动下载..."
     "$SCRIPT_DIR/download_walle.sh"
   fi
-  [[ -f "$WALLE_JAR" ]] || die "Walle 不存在: $WALLE_JAR（执行 ./scripts/download_walle.sh）"
+  [[ -f "$WALLE_JAR" ]] || die "Walle 不存在: $WALLE_JAR（执行 ./scripts/build/download_walle.sh）"
   command -v python3 >/dev/null 2>&1 || die "未找到 python3，无法对齐 APK Signing Block"
 }
 

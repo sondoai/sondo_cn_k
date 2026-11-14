@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# 打包脚本公共部分：日志、工具链环境、版本号读取。由 scripts/*.sh source，不单独执行。
+# 打包脚本公共部分：日志、工具链环境、版本号读取。由 scripts/build/*.sh source，不单独执行。
 # 调用方需先定义 ROOT_DIR（工程根目录）。
 
 log() { echo "[$(date +'%H:%M:%S')] $*"; }
 logTitle() { echo ""; echo "=================== $* ==================="; }
 die() { echo "Error: $*" >&2; exit 1; }
 
-# 本机密钥（蒲公英 Key、鸿蒙签名材料），gitignore，模板见 scripts/build.local.sh.example
+# 本机密钥（蒲公英 Key、鸿蒙签名材料），gitignore，模板见 scripts/build/build.local.sh.example
 load_local_config() {
-  local f="$ROOT_DIR/scripts/build.local.sh"
+  local f="$ROOT_DIR/scripts/build/build.local.sh"
   if [[ -f "$f" ]]; then
     # shellcheck disable=SC1090
     source "$f"

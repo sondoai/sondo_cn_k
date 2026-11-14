@@ -43,7 +43,7 @@ Kuikly 页面的鸿蒙（HarmonyOS NEXT / ArkTS）承载工程。业务 UI 与�
 ### 开发阶段 Kotlin 页面热重载（不重启应用）
 
 项目提供单独的 Debug JSVM 宿主，保留现有鸿蒙原生渲染器、导航与 `SD*Module`。
-Kotlin/JS bundle 由工程根目录的 `scripts/hot-reload.mjs` 编译并在端口 `8088` 提供；
+Kotlin/JS bundle 由工程根目录的 `scripts/hot/hot-reload.mjs` 编译并在端口 `8088` 提供；
 页面每秒检查版本，编译成功后只销毁并重建 Kuikly Pager，不重新安装 HAP 或退出应用。
 页面临时状态会重新初始化，同一 bundle 版本的页面共享 Kotlin 单例。
 
@@ -51,7 +51,7 @@ Kotlin/JS bundle 由工程根目录的 `scripts/hot-reload.mjs` 编译并在端�
 
 ```bash
 # 项目根目录。真机局域网连接时，替换成开发电脑可达的地址。
-SONDO_HOT_RELOAD_URL=http://192.168.1.8:8088 bash scripts/ohos-hot-reload-build.sh
+SONDO_HOT_RELOAD_URL=http://192.168.1.8:8088 bash scripts/hot/ohos-hot-reload-build.sh
 ```
 
 使用本机 `127.0.0.1` 地址时，可对已经连接的设备建立端口反向映射：

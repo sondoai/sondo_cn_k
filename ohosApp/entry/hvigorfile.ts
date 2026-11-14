@@ -1,7 +1,7 @@
 import { hapTasks, OhosHapContext, OhosPluginId } from '@ohos/hvigor-ohos-plugin';
 import { getNode, hvigor, HvigorNode } from '@ohos/hvigor';
 
-// 命令行 -p API_ENV / -p SHOW_TOKEN_EDITOR（scripts/build_app.sh 传入）覆盖 build-profile.json5 的
+// 命令行 -p API_ENV / -p SHOW_TOKEN_EDITOR（scripts/build/build_app.sh 传入）覆盖 build-profile.json5 的
 // buildProfileFields。SONDO_KUIKLY_HOT_RELOAD=1 只为本次 Debug 构建打开热重载，并给 CMake 加上
 // -DSONDO_KUIKLY_HOT_RELOAD=ON。两者都只改内存配置；都不传时保持文件里的默认值，DevEco 直接运行不受影响。
 const HOT_RELOAD_CMAKE_ARG = '-DSONDO_KUIKLY_HOT_RELOAD=ON';

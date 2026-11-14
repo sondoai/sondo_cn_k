@@ -26,6 +26,6 @@ ohosApp/build/
 # 打包脚本：产物、下载的工具、本机密钥 / 签名材料
 dist/
 tools/
-scripts/build.local.sh
+scripts/build/build.local.sh
 ohosApp/sign/
 iosApp/build/

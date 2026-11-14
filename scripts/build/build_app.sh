@@ -3,8 +3,8 @@
 # Sondo（Kuikly）打包 →（可选）上传蒲公英。三端：Android / iOS / HarmonyOS。
 #
 # 用法：
-#   ./scripts/build_app.sh                       # 全交互
-#   ./scripts/build_app.sh -p android -e test -m release --token --upload -d "修复登录"
+#   ./scripts/build/build_app.sh                       # 全交互
+#   ./scripts/build/build_app.sh -p android -e test -m release --token --upload -d "修复登录"
 #
 # 参数（给了就不再问，全部给齐即可免交互）：
 #   -p, --platform android|ios|ohos
@@ -15,13 +15,13 @@
 #   -d, --desc     <更新描述>          上传时的版本描述，默认「[平台/环境] 时间」
 #
 # 产物复制到 dist/sondo-<平台>-<版本>-<环境>-<模式>-<时间>.<apk|ipa|hap>
-# 密钥（蒲公英 Key、鸿蒙签名材料）在 scripts/build.local.sh，模板见 scripts/build.local.sh.example。
-# Android 渠道包另见 scripts/build_channels.sh。
+# 密钥（蒲公英 Key、鸿蒙签名材料）在 scripts/build/build.local.sh，模板见 scripts/build/build.local.sh.example。
+# Android 渠道包另见 scripts/build/build_channels.sh。
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 cd "$ROOT_DIR"
 # shellcheck source=lib/common.sh
 source "$SCRIPT_DIR/lib/common.sh"
@@ -212,7 +212,7 @@ build_ohos() {
     hap="$signed"   # hvigor 按 build-profile.json5 的 signingConfigs 签好了
   else
     hap="$unsigned"
-    log "警告: 未签名（scripts/build.local.sh 未配置 OHOS_P12 / OHOS_CERT / OHOS_PROFILE），只能用于检查，真机和蒲公英装不上"
+    log "警告: 未签名（scripts/build/build.local.sh 未配置 OHOS_P12 / OHOS_CERT / OHOS_PROFILE），只能用于检查，真机和蒲公英装不上"
   fi
   local suffix=""
   [[ "$hap" == "$unsigned" ]] && suffix="-unsigned"
@@ -233,7 +233,7 @@ if [[ "$UPLOAD" != true ]]; then
   exit 0
 fi
 if [[ "$ARTIFACT" == *-unsigned.hap ]]; then
-  die "未签名的 hap 不能上传蒲公英：先在 scripts/build.local.sh 配置鸿蒙签名材料"
+  die "未签名的 hap 不能上传蒲公英：先在 scripts/build/build.local.sh 配置鸿蒙签名材料"
 fi
 pgyer_upload "$ARTIFACT" "$BUILD_TYPE" "$DESC"
 if [[ "$PLATFORM" == ohos ]]; then

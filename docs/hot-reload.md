@@ -60,7 +60,7 @@ xcodebuild -workspace iosApp/iosApp.xcworkspace -scheme iosApp \
 
 ```bash
 SONDO_HOT_RELOAD_URL=http://开发机局域网IP:8088 \
-  bash scripts/ohos-hot-reload-build.sh
+  bash scripts/hot/ohos-hot-reload-build.sh
 ```
 
 脚本仅为本次 Debug 构建注入开关与地址。安装运行生成的 `ohosApp/entry/build/hotReload/outputs/default/entry-default-signed.hap` 即可。开发加载器通过官方 Kuikly C ABI 接入系统 JSVM，共享每个版本的 JS 运行时。保存 Kotlin 后下载新的不可变 bundle，只重建 Kuikly 页面，应用进程保持运行。该开发产品不需要先编译 `libshared.so`；正常 Native 产品仍使用原有 `./ohos_build.sh` 流程。
@@ -77,7 +77,7 @@ SONDO_HOT_RELOAD_URL=http://开发机局域网IP:8088 \
 
 ```bash
 ./dev.sh --check
-node --test scripts/hot-reload.test.mjs
+node --test scripts/hot/hot-reload.test.mjs
 ./dev.sh ios --once
 bash iosApp/tests/check-hot-reload-runtime.sh
 ```

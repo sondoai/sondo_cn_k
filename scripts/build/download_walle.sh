@@ -3,8 +3,8 @@
 # 下载美团 Walle CLI（walle-cli-all.jar）到 tools/walle/
 #
 # 用法：
-#   ./scripts/download_walle.sh
-#   ./scripts/download_walle.sh --force   # 已存在也重新下载覆盖
+#   ./scripts/build/download_walle.sh
+#   ./scripts/build/download_walle.sh --force   # 已存在也重新下载覆盖
 #
 # 官方端点（按序尝试）：
 #   1) GitHub Releases v1.1.6
@@ -17,7 +17,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 cd "$ROOT_DIR"
 
 WALLE_HOME="${WALLE_HOME:-$ROOT_DIR/tools/walle}"

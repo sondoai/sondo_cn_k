@@ -2,9 +2,9 @@ import { appTasks, OhosAppContext, OhosPluginId } from '@ohos/hvigor-ohos-plugin
 import { getNode, hvigor, HvigorNode } from '@ohos/hvigor';
 import * as fs from 'fs';
 
-// scripts/build_app.sh 传 -p SONDO_SIGN_FALLBACK=true：build-profile.json5 里引用的签名文件在本机不存在时
+// scripts/build/build_app.sh 传 -p SONDO_SIGN_FALLBACK=true：build-profile.json5 里引用的签名文件在本机不存在时
 // （签名路径是别人机器上的绝对路径），去掉 product 的 signingConfig，让 hvigor 只出 unsigned hap，
-// 再由脚本用 hap-sign-tool + scripts/build.local.sh 里的证书签名。不传参数（DevEco 里运行）时不做任何改动。
+// 再由脚本用 hap-sign-tool + scripts/build/build.local.sh 里的证书签名。不传参数（DevEco 里运行）时不做任何改动。
 const node = getNode(__filename);
 node?.afterNodeEvaluate((n: HvigorNode) => {
   if (hvigor.getParameter().getExtParam('SONDO_SIGN_FALLBACK') !== 'true') {
