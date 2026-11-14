@@ -25,7 +25,7 @@ SONDO_HOT_RELOAD_URL=http://192.168.10.174:8088
 
 未配置地址时 Debug 继续使用原有 `shared.framework`；Release 编译排除 JavaScriptCore 热重载执行器、网络轮询和重建代码。修改 Swift / Objective-C 原生模块、Pod 依赖或原生资源仍需用 Xcode 重新构建宿主。
 
-已用实际编译出的完整 JS bundle 验证 JavaScriptCore 桥接、双页面共享单例环境、页面销毁、进程内切换新代码及错误产物拒绝；iOS 宿主改动已用 Apple iOS Simulator SDK 和 Kuikly 官方 2.30 头文件做 Debug / Release 类型检查。完整 App 的设备运行仍需完成首次 CocoaPods 集成和签名。
+已用实际编译出的完整 JS bundle 验证 JavaScriptCore 桥接、双页面共享单例环境、页面销毁、进程内切换新代码及错误产物和 SHA-256 不匹配拒绝；iOS 宿主改动已用 Apple iOS Simulator SDK 和 Kuikly 官方 2.30 头文件做 Debug / Release 类型检查。本机已完成 CocoaPods 集成、包含真实 `shared.framework` 和全部 SDK 的 Debug 完整构建，并在 iPhone 17 / iOS 26.2 模拟器完成端到端验收：保存 Kotlin 文案后，原生页面标题从「个人信息保护指引」自动变为测试文案，恢复源码后自动变回原文案，两次应用 PID 均保持 9585，未重装或重启。真机运行仍需签名与局域网权限验证。
 
 可在 macOS 上复跑真实 JS 执行器检查：`bash iosApp/tests/check-hot-reload-runtime.sh`。它加载已编译的 `sondo.js`，用测试原生回调接收实际页面的渲染指令，不替代真机 UI 验证。
 
@@ -146,7 +146,7 @@ MomcakeBold / MomcakeThin / MonotonRegular / MontserratBlack / MontserratBlackIt
 
 ## 这台机器上验证过 / 没验证过的
 
-这份工程是在没有 Xcode、没有 CocoaPods 的机器上写的，没有做过一次完整构建。已经做过的检查：
+宿主最初在没有 Xcode / CocoaPods 的环境中编写。2026-11-14 接入开发热重载时，已在本机完成首次 `pod install`、Kotlin/Native `syncFramework`、完整 iOS Debug 模拟器构建和启动。更早的单项检查记录：
 
 - `plutil -lint` 通过：`project.pbxproj`、`Info.plist`、`iosApp.entitlements`；pbxproj 里没有悬空的对象 ID；`ruby -c Podfile` 通过。
 - 用命令行工具自带的 Swift 6.3 / clang，以 Mac Catalyst（`arm64-apple-ios14.1-macabi`，Swift 5 模式）为目标做了类型检查：
@@ -156,10 +156,10 @@ MomcakeBold / MomcakeThin / MonotonRegular / MontserratBlack / MontserratBlackIt
   整文件 / 分片 / multipart 上传的 Content-Length、下载原子落盘、Range 探测）、
   「ObjC NSInvocation → Swift 模块方法 → block 回调」这条调用链、字体文件的 PostScript 名。
 
-首次在 Xcode 里构建时请逐项确认：
+首次完整构建后的验证清单：
 
-- [ ] `pod install` 能解析 `OpenKuiklyIOSRender 2.30.0`（本机只看到 changelog 到 2.26.0，没法确认 2.30.0 已发布到 CocoaPods）。
-- [ ] CocoaPods 能正常集成 `objectVersion = 77` 的工程，「[CP] Copy Pods Resources」把 `common/` 拷进了包根（图片能显示）。
+- [x] `pod install` 已解析真实的 `OpenKuiklyIOSRender 2.30.0` 和其余 9 个 Pod，并成功构建。
+- [x] CocoaPods 正常集成 `objectVersion = 77` 的工程，资源复制阶段构建通过；具体图片逐项显示仍需业务验收。
 - [ ] `use_frameworks! :linkage => :static` 下各 SDK pod 与 `OpenKuiklyIOSRender` 的模块头能正常编译。
 - [ ] 2.30.0 的渲染器头文件与本机源码树一致（重点：`onBackPressedWithCompletion:`、`hr_setImageWithUrl:imageParams:complete:`、
       `+[KRConvertUtil UIFont:]` 的入参仍是含 `fontFamily` / `fontSize` / `fontWeight` 的字典）。

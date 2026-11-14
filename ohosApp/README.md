@@ -59,8 +59,8 @@ SONDO_HOT_RELOAD_URL=http://192.168.1.8:8088 bash scripts/ohos-hot-reload-build.
 ```bash
 HDC=/Applications/DevEco-Studio.app/Contents/sdk/default/openharmony/toolchains/hdc
 "$HDC" list targets
-"$HDC" rport tcp:8088 tcp:8088
 "$HDC" install -r ohosApp/entry/build/hotReload/outputs/default/entry-default-signed.hap
+"$HDC" rport tcp:8088 tcp:8088
 "$HDC" shell aa start -a EntryAbility -b com.sondo.music.video.ai
 ```
 

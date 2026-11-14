@@ -15,6 +15,13 @@ if [[ ! -x "$NODE_HOME/bin/node" ]]; then
   echo "未找到DevEco工具链：$SONDO_DEVECO_DIR" >&2
   exit 1
 fi
+# JSVM宿主仍从HAP读取assets://common/…；同步已有资源，不触发Kotlin/Native构建。
+SONDO_ASSETS_SOURCE="$SONDO_PROJECT_DIR/shared/src/commonMain/assets/common"
+SONDO_ASSETS_TARGET="$SONDO_PROJECT_DIR/ohosApp/entry/src/main/resources/resfile/common"
+if [[ -d "$SONDO_ASSETS_SOURCE" ]]; then
+  mkdir -p "$SONDO_ASSETS_TARGET"
+  rsync -a --delete --exclude '.DS_Store' "$SONDO_ASSETS_SOURCE/" "$SONDO_ASSETS_TARGET/"
+fi
 cd "$SONDO_PROJECT_DIR/ohosApp"
 if [[ ! -d entry/oh_modules ]]; then
   ohpm install --all

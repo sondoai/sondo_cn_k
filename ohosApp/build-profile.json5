@@ -32,20 +32,6 @@
     ],
     "products": [
       {
-        // 开发期JSVM宿主单独使用本机已安装的SDK，不改变默认发布产品。
-        "name": "hotReload",
-        "signingConfig": "default",
-        "compatibleSdkVersion": "5.0.0(12)",
-        "runtimeOS": "HarmonyOS",
-        "targetSdkVersion": "6.1.1(24)",
-        "buildOption": {
-          "strictMode": {
-            "caseSensitiveCheck": true,
-            "useNormalizedOHMUrl": true
-          }
-        }
-      },
-      {
         "name": "default",
         "signingConfig": "default",
         // @kuikly-open/render 2.x 以字节码 HAR 发布，要求 API 12（HarmonyOS 5.0.0）及 useNormalizedOHMUrl。
@@ -58,6 +44,20 @@
           }
         },
         "targetSdkVersion": "26.0.0"
+      },
+      {
+        // 开发期JSVM宿主单独使用本机已安装的SDK，不改变默认发布产品。
+        "name": "hotReload",
+        "signingConfig": "default",
+        "compatibleSdkVersion": "5.0.0(12)",
+        "runtimeOS": "HarmonyOS",
+        "targetSdkVersion": "6.1.1(24)",
+        "buildOption": {
+          "strictMode": {
+            "caseSensitiveCheck": true,
+            "useNormalizedOHMUrl": true
+          }
+        }
       }
     ],
     "buildModeSet": [

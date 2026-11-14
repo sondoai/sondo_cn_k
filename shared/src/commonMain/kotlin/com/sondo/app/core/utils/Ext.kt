@@ -11,7 +11,8 @@ import kotlin.math.roundToLong
 
 // ------------------------------------------------------------------ String
 
-private val emailRegex = Regex("^[\\w-.]+@([\\w-]+\\.)+[\\w-]{2,4}$")
+// Kotlin/JS 使用 Unicode 正则模式，字符类中的连字符必须放末尾，避免被解释成非法范围。
+private val emailRegex = Regex("^[\\w.-]+@([\\w-]+\\.)+[\\w-]{2,4}$")
 
 /** 是否是有效的邮箱 */
 val String.isEmail: Boolean get() = emailRegex.matches(this)

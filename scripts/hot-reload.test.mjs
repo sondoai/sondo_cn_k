@@ -79,3 +79,12 @@ test('命令行拒绝无效端口和监听间隔', () => {
   assert.throws(() => parseArgs(['--interval', '0']));
   assert.throws(() => parseArgs(['--unknown']));
 });
+
+test('业务邮箱正则在 Kotlin/JS 使用的 Unicode 模式下可编译并正常匹配', () => {
+  const source = fs.readFileSync(path.join(root, 'shared/src/commonMain/kotlin/com/sondo/app/core/utils/Ext.kt'), 'utf8');
+  const literal = source.match(/private val emailRegex = Regex\(("(?:\\.|[^"\\])*")\)/)?.[1];
+  assert.ok(literal, '应读取业务实际使用的正则');
+  const regex = new RegExp(JSON.parse(literal), 'u');
+  for (const email of ['user@example.com', 'first.last@test.cn', 'first-last@test.cn']) assert.ok(regex.test(email), email);
+  for (const email of ['no-at-sign', 'a@', '@example.com']) assert.equal(regex.test(email), false, email);
+});
