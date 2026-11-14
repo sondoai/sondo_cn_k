@@ -76,7 +76,14 @@ object UmengUtils {
             return
         }
         // 参考工程用编译期 UMENG_CHANNEL；这里渠道包直接取 Walle 渠道号，非渠道包回落默认值。
-        val channel = Api.appChannel.trim().ifEmpty { if (AppEnv.isIOS) "App Store" else "official" }
+        // 鸿蒙 SDK 以 umconfig.json 的 channel 为准，这里传 harmony，避免和文件不一致。
+        val channel = Api.appChannel.trim().ifEmpty {
+            when {
+                AppEnv.isIOS -> "App Store"
+                AppEnv.isOhos -> "harmony"
+                else -> "official"
+            }
+        }
         try {
             // 原生侧 init 内部切到手动页面统计模式，页面时长由 onRouteChanged 打点。
             module()?.init(appKey, channel)

@@ -1,19 +1,32 @@
 {
   "app": {
-    // 签名：在 DevEco Studio 里 File > Project Structure > Signing Configs 勾选
-    // 「Automatically generate signature」，IDE 会把 material 写到这里（不要提交个人证书路径）。
+    // 签名材料来自 Flutter 旧工程 ohos/build-profile.json5。
+    // default：本机调试证书；release：发布证书。当前产品用 default，打蒲公英或真机发布包时改为 release。
     "signingConfigs": [
       {
         "name": "default",
         "type": "HarmonyOS",
         "material": {
-          "certpath": "/Users/mac/.ohos/config/default_ohosApp_U3OKWDQLxG2gnf63BdyOJza4zOCBeczSO9mS3xA76Gs=.cer",
+          "certpath": "/Users/kj/.ohos/config/default_ohos_JRfmvJGd7x8YAb0V3TVEbHf0eq2ZxWnq3HVWjbSBm8o=.cer",
           "keyAlias": "debugKey",
-          "keyPassword": "0000001AD8A59108DC32BAE80648FDD95CC5E3971BEBFA594442745BDE7E81246074612F0719390B3E15",
-          "profile": "/Users/mac/.ohos/config/default_ohosApp_U3OKWDQLxG2gnf63BdyOJza4zOCBeczSO9mS3xA76Gs=.p7b",
+          "keyPassword": "0000001B283D9BF4F27CEB50FF27C2B8B68303A267E4DEF0BBCFBA348F185DD0EB017E5738CC3D3C251046",
+          "profile": "/Users/kj/.ohos/config/default_ohos_JRfmvJGd7x8YAb0V3TVEbHf0eq2ZxWnq3HVWjbSBm8o=.p7b",
           "signAlg": "SHA256withECDSA",
-          "storeFile": "/Users/mac/.ohos/config/default_ohosApp_U3OKWDQLxG2gnf63BdyOJza4zOCBeczSO9mS3xA76Gs=.p12",
-          "storePassword": "0000001AF8AEA19DF1582F90D27A5859A50D95A17846047ADDE50D51DB0F410D08AFDBC8F1B1087736AC"
+          "storeFile": "/Users/kj/.ohos/config/default_ohos_JRfmvJGd7x8YAb0V3TVEbHf0eq2ZxWnq3HVWjbSBm8o=.p12",
+          "storePassword": "0000001B22049FDEDC16021C406542F952FA31C872325C078A5905D88C8CC4D07CA08F7C061DCBBBB93A23"
+        }
+      },
+      {
+        "name": "release",
+        "type": "HarmonyOS",
+        "material": {
+          "storeFile": "/Users/kj/Desktop/config/sondo-cn/华为/发布证书/sondo_release.p12",
+          "storePassword": "00000018EEF860BFF7C919063E918F2962B784745F2C5E02F4CAE8C89D1F9CE17E7C5EE7",
+          "keyAlias": "sondo_release",
+          "keyPassword": "000000188D32328DD94F439C1937BA5E55EC197E886337FC9E3878C90A23EB5FCB1C56A5",
+          "signAlg": "SHA256withECDSA",
+          "profile": "/Users/kj/Desktop/config/sondo-cn/华为/发布证书/sondo_release_profileRelease.p7b",
+          "certpath": "/Users/kj/Desktop/config/sondo-cn/华为/发布证书/Sondo_Release_Certificate.cer"
         }
       }
     ],
@@ -39,6 +52,17 @@
       },
       {
         "name": "release"
+      }
+    ],
+    "capabilities": [
+      {
+        "bundleName": "com.sondo.music.video.ai",
+        "config": [
+          {
+            "name": "Push Kit",
+            "capability": "com.huawei.service.push.base_service"
+          }
+        ]
       }
     ]
   },
