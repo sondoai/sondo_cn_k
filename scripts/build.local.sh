@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# 本机打包配置模板。复制为 scripts/build.local.sh（已 gitignore，禁止提交）后填写：
+#   cp scripts/build.local.sh.example scripts/build.local.sh
+# build_app.sh / build_channels.sh 启动时会 source 它；这里的值也可以直接用环境变量覆盖。
+
+# ---- 蒲公英（与参考工程 ../sondo_cn/scripts/build_app.sh 同一个账号）----
+export PGYER_API_KEY="${PGYER_API_KEY:-dbbebbc2feb1c72b46e1fe1e71c8ba8e}"
+export PGYER_INSTALL_TYPE="${PGYER_INSTALL_TYPE:-2}"   # 1=公开 2=密码 3=邀请
+export PGYER_PASSWORD="${PGYER_PASSWORD:-321}"            # 安装密码
+
+# ---- 鸿蒙签名（hap-sign-tool 命令行签名 + 蒲公英 uploadHarmonyCert）----
+# 用 AGC 的发布证书：p12 + cer + p7b。建议放 ohosApp/sign/（已 gitignore）。
+# 不填则只出 hvigor 的产物（多半是 unsigned，蒲公英装不上）。
+export OHOS_P12="${OHOS_P12:-}"                 # 例：$ROOT_DIR/ohosApp/sign/sondo_release.p12
+export OHOS_P12_PASSWORD="${OHOS_P12_PASSWORD:-}"
+export OHOS_KEY_ALIAS="${OHOS_KEY_ALIAS:-sondo_release}"
+export OHOS_KEY_PASSWORD="${OHOS_KEY_PASSWORD:-$OHOS_P12_PASSWORD}"
+export OHOS_CERT="${OHOS_CERT:-}"               # 例：$ROOT_DIR/ohosApp/sign/Sondo_Release_Certificate.cer
+export OHOS_PROFILE="${OHOS_PROFILE:-}"         # 例：$ROOT_DIR/ohosApp/sign/sondo_release_profileRelease.p7b
+
+# ---- iOS（可选）----
+# 导出配置，默认 iosApp/ExportOptions-debug.plist（debugging + 自动签名，Team XR9PF858VF）
+# export IOS_EXPORT_OPTIONS="$ROOT_DIR/iosApp/ExportOptions-debug.plist"
