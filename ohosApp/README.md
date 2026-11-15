@@ -216,7 +216,7 @@ tracking 恒返回 granted）。如果产品只用系统相机 Picker，可以�
 - [x] `CMakeLists.txt` 经 `PACKAGE_FIND_FILE` + `find_package(render)` 拿到 `render::kuikly`，配置与链接通过。
 - [x] `import BuildProfile from 'BuildProfile'` 与 `buildProfileFields` 自定义字段（`AppConfig.ets`）编译通过。
 - [ ] `napi_init.cpp` 假定入口符号是 `libshared_symbols()->kotlin.root.initKuikly`（KSP 生成在根包）。
-- [ ] 支付宝 SDK 钉死在 `15.8.37`（15.8.38 起要求 API 13）；若把 `compatibleSdkVersion` 提到 `5.0.1(13)` 可升级。
+- [ ] 华为支付（Payment Kit）的后端接口还没实现，约定见 `docs/huawei-pay-api.md`；鸿蒙不接支付宝。
 - [ ] `build-profile.json5` 没写 `targetSdkVersion`（hvigor 提示建议配置；默认取编译 SDK 的版本）。
 
 **容器 / 导航**

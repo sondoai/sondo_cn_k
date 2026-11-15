@@ -167,7 +167,8 @@ object PushService {
         if (didSetup) return true
         // 先占位，避免并发调用重复初始化。
         didSetup = true
-        // 前台不弹系统通知（原生 setup 内已设置），改走应用内横幅，生成页可以按路由丢掉。
+        // 前台不弹系统通知，改走应用内横幅，生成页可以按路由丢掉。Android / iOS 在原生 setup 内设置；
+        // 鸿蒙靠服务端下发 foregroundShow=false，消息经 PushMessageAbility 转成 notificationReceived。
         // production 只对 iOS 生效，Android / 鸿蒙忽略。
         module.setup(appKey, pushChannel(), production = !AppEnv.isDebug, debug = AppEnv.isDebug)
         return true

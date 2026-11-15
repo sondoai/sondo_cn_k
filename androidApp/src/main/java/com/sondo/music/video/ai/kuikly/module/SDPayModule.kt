@@ -11,7 +11,7 @@ import com.tencent.kuikly.core.render.android.export.KuiklyRenderCallback
 /**
  * 支付（契约见 shared 的 `SDPayModule`）。
  *
- * Android 只有支付宝：`alipayIsInstalled`（同步）和 `alipayPay`。自动续费签约走 SDAppModule.openUrl
+ * Android 只有支付宝：`alipayIsInstalled`（同步）和 `alipayPay`（华为支付 `huaweiPay` / `huaweiContract` 是鸿蒙的，这里回 unsupported）。自动续费签约走 SDAppModule.openUrl
  * 拉起 `alipays://`，不经过这里。`iap*` 是 iOS 内购，这里立即回 unsupported，页面逻辑不用分平台判空。
  */
 class SDPayModule : KuiklyRenderBaseModule() {
@@ -27,6 +27,9 @@ class SDPayModule : KuiklyRenderBaseModule() {
                 AlipayManager.pay(activity, orderStr, OnceCallback(callback))
                 null
             }
+
+            // 华为支付只在鸿蒙端实现。
+            "huaweiPay", "huaweiContract" -> reply(callback, SdkSupport.unsupported())
 
             "iapIsAvailable" -> reply(callback, SdkSupport.unsupported("available" to false))
             "iapQueryProducts" -> {

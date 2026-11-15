@@ -5,8 +5,9 @@ import com.tencent.kuikly.core.nvi.serialization.json.JSONArray
 import com.tencent.kuikly.core.nvi.serialization.json.JSONObject
 
 /**
- * 支付。
- * - Android / 鸿蒙：支付宝（积分包走 SDK `payV2(orderStr)`；自动续费签约走 SDAppModule.openUrl 拉起 alipays://）。
+ * 支付。各端只实现自己的渠道，其余方法回 `{ok:false, error:"unsupported"}`：
+ * - Android：支付宝（积分包走 SDK `payV2(orderStr)`；自动续费签约走 SDAppModule.openUrl 拉起 alipays://）。
+ * - 鸿蒙：华为支付 Payment Kit（积分包 [huaweiPay]；自动续费签约代扣 [huaweiContract]）。
  * - iOS：StoreKit 2 内购。
  * 建单、轮询、验单信封、会话与补单状态机都在 Kuikly 侧 PayService；原生只做 SDK 调用。
  *
@@ -22,6 +23,17 @@ class SDPayModule : SDModule() {
 
     /** 支付宝 App 支付。→ {ok, resultStatus:"9000"|"8000"|"6001"|…, result?, memo?} */
     suspend fun alipayPay(orderStr: String): JSONObject = await("alipayPay", JSONObject().put("orderStr", orderStr))
+
+    /**
+     * 华为支付收银台（鸿蒙 `paymentService.requestPayment`）。[orderStr] 是商户服务器签好名的 JSON，原样透传。
+     * → {ok:true} 收银台走完；{ok:false, error, code?}，code 1001930000 = 用户取消（[HUAWEI_CANCELED]）。
+     * 成功也不能当到账，权益只认后端查单。非鸿蒙回 unsupported。
+     */
+    suspend fun huaweiPay(orderStr: String): JSONObject = await("huaweiPay", JSONObject().put("orderStr", orderStr))
+
+    /** 华为支付签约代扣（鸿蒙 `paymentService.requestContract`），用于会员自动续费。回参同 [huaweiPay]。 */
+    suspend fun huaweiContract(contractStr: String): JSONObject =
+        await("huaweiContract", JSONObject().put("contractStr", contractStr))
 
     /** → 是否可用内购（非 iOS 恒 false） */
     suspend fun iapIsAvailable(): Boolean = await("iapIsAvailable").optBoolean("available", false)
@@ -64,6 +76,9 @@ class SDPayModule : SDModule() {
 
     companion object {
         const val MODULE_NAME = "SDPayModule"
+
+        /** 华为支付：用户取消。 */
+        const val HUAWEI_CANCELED = 1001930000
     }
 }
 

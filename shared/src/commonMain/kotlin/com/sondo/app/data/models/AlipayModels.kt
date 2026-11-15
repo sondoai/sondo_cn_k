@@ -3,7 +3,7 @@ package com.sondo.app.data.models
 import com.tencent.kuikly.core.nvi.serialization.json.JSONObject
 
 /*
- * 支付宝下单 / 查单 / 续费管理的结果模型
+ * 国内支付渠道（Android 支付宝 / 鸿蒙华为支付，两者回包同构）下单 / 查单 / 续费管理的结果模型
  * （Dart: lib/shared/data/datasources/pay_remote_datasource.dart 文件内的结果类）。
  * 共同约定：`code` 是业务码；请求失败（网络、超时、回包不是 JSON）时 code 为 null，
  * 调用方不能把 null 当成业务拒绝或未付款。
@@ -62,15 +62,19 @@ data class AlipayTradeOrder(
     }
 }
 
-/** 支付宝签约单。code 非 0 时不带链接。 */
+/**
+ * 自动续费签约单。code 非 0 时不带凭证。
+ * 支付宝给 [jumpSchema]（alipays:// 签约链接）；华为支付给 [contractStr]（requestContract 的入参）。
+ */
 data class AlipaySubscriptionOrder(
     var code: Int? = null,
     var orderId: String = "",
     var jumpSchema: String = "",
     var payAmount: Double? = null,
     var expireTime: String? = null,
+    var contractStr: String = "",
 ) {
-    val ready: Boolean get() = code == 0 && orderId.isNotEmpty() && jumpSchema.isNotEmpty()
+    val ready: Boolean get() = code == 0 && orderId.isNotEmpty() && (jumpSchema.isNotEmpty() || contractStr.isNotEmpty())
 
     companion object {
         fun fromResponse(body: JSONObject?): AlipaySubscriptionOrder {
@@ -83,6 +87,7 @@ data class AlipaySubscriptionOrder(
                 jumpSchema = data.trimmed("alipayJumpSchema"),
                 payAmount = alipayAmount(data.jRaw("payAmount")),
                 expireTime = data.jStrOrNull("expireTime"),
+                contractStr = data.trimmed("contractStr"),
             )
         }
     }
@@ -136,7 +141,7 @@ data class AlipayCancelResult(
     }
 }
 
-/** 订阅管理。只有支付宝且允许取消时才弹确认框。 */
+/** 订阅管理。只有支付宝 / 华为支付自动续费且允许取消时才弹确认框。 */
 data class AlipayRenewState(
     var code: Int? = null,
     var provider: String = "",
@@ -144,7 +149,10 @@ data class AlipayRenewState(
     var reason: String = "",
 ) {
     val canCancelAlipay: Boolean
-        get() = code == 0 && provider.uppercase() == "ALIPAY" && action == "CANCEL_ALIPAY_AUTO_RENEW"
+        get() = code == 0 && (
+            (provider.uppercase() == "ALIPAY" && action == "CANCEL_ALIPAY_AUTO_RENEW") ||
+                (provider.uppercase() == "HUAWEI" && action == "CANCEL_HUAWEI_AUTO_RENEW")
+            )
 
     companion object {
         fun fromResponse(body: JSONObject?): AlipayRenewState {

@@ -1,5 +1,6 @@
 package com.sondo.app.data.api
 
+import com.sondo.app.base.AppEnv
 import com.sondo.app.core.constants.ApiPaths
 import com.sondo.app.core.http.Api
 import com.sondo.app.core.http.ApiException
@@ -38,8 +39,14 @@ object PayApi {
 
     private val payOptions = ReqOptions(timeoutMs = PAY_TIMEOUT_MS)
 
-    /** 支付宝接口：业务码留给调用方，不弹全局错误。 */
+    /** 支付宝 / 华为支付接口：业务码留给调用方，不弹全局错误。 */
     private val alipayOptions = ReqOptions(quiet = true, timeoutMs = PAY_TIMEOUT_MS)
+
+    /**
+     * 国内支付渠道的接口路径：Android 支付宝，鸿蒙华为支付。两套接口的请求和回包同构，
+     * 下面 `*Alipay*` 方法名沿用支付宝，实际按平台选路径。
+     */
+    private fun cnPath(alipay: String, huawei: String): String = if (AppEnv.isOhos) huawei else alipay
 
     /** Apple V2 建单。商品 ID 为空、请求失败或回包不完整：Dart 返回 null。 */
     suspend fun createIosOrder(productId: String): ApiResult<IosOrder> {
@@ -122,10 +129,10 @@ object PayApi {
             query = mapOf("platform" to 12, "productType" to productType, "isRate" to isRate),
         ).parse { cnGoodsFromBody(it, productType) }
 
-    /** 创建支付宝积分包订单。`orderStr` 原样交给 SDK，业务码留给调用方。永远 Success。 */
+    /** 创建积分包订单（支付宝 / 华为支付）。`orderStr` 原样交给 SDK，业务码留给调用方。永远 Success。 */
     suspend fun createAlipayTrade(productId: String): ApiResult<AlipayTradeOrder> {
         if (productId.trim().isEmpty()) return ApiResult.Success(AlipayTradeOrder())
-        val res = Api.post(ApiPaths.alipayTradeCreate, JSONObject().put("productId", productId), opts = alipayOptions)
+        val res = Api.post(cnPath(ApiPaths.alipayTradeCreate, ApiPaths.huaweiTradeCreate), JSONObject().put("productId", productId), opts = alipayOptions)
         return ApiResult.Success(
             when (res) {
                 is ApiResult.Success -> AlipayTradeOrder.fromResponse(res.data)
@@ -134,11 +141,11 @@ object PayApi {
         )
     }
 
-    /** 创建支付宝自动续费签约单。业务码留给调用方，不在这里弹全局错误。永远 Success。 */
+    /** 创建自动续费签约单（支付宝给签约链接，华为支付给 contractStr）。业务码留给调用方，不在这里弹全局错误。永远 Success。 */
     suspend fun createAlipaySubscription(productId: String): ApiResult<AlipaySubscriptionOrder> {
         if (productId.trim().isEmpty()) return ApiResult.Success(AlipaySubscriptionOrder())
         val res = Api.post(
-            ApiPaths.alipaySubscriptionCreate,
+            cnPath(ApiPaths.alipaySubscriptionCreate, ApiPaths.huaweiSubscriptionCreate),
             JSONObject().put("productId", productId),
             opts = alipayOptions,
         )
@@ -154,7 +161,7 @@ object PayApi {
     suspend fun queryAlipayOrder(orderId: String): ApiResult<AlipayOrderResult> {
         val id = orderId.trim()
         if (id.isEmpty()) return ApiResult.Success(AlipayOrderResult())
-        val res = Api.get("${ApiPaths.alipayOrder}/$id", opts = alipayOptions)
+        val res = Api.get("${cnPath(ApiPaths.alipayOrder, ApiPaths.huaweiOrder)}/$id", opts = alipayOptions)
         return ApiResult.Success(
             when (res) {
                 is ApiResult.Success -> AlipayOrderResult.fromResponse(res.data)
@@ -165,7 +172,7 @@ object PayApi {
 
     /** 取消自动续费。成功只表示不再续扣，当前周期权益仍在。永远 Success。 */
     suspend fun cancelAlipaySubscription(): ApiResult<AlipayCancelResult> {
-        val res = Api.post(ApiPaths.alipaySubscriptionCancel, opts = alipayOptions)
+        val res = Api.post(cnPath(ApiPaths.alipaySubscriptionCancel, ApiPaths.huaweiSubscriptionCancel), opts = alipayOptions)
         return ApiResult.Success(
             when (res) {
                 is ApiResult.Success -> AlipayCancelResult.fromResponse(res.data)

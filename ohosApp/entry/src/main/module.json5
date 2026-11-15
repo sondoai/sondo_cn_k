@@ -12,11 +12,10 @@
     "installationFree": false,
     "pages": "$profile:main_pages",
     // --- sdk --- bundleManager.canOpenLink 只能查询这里声明过的 scheme：
-    //   alipays            SDPayModule.alipayIsInstalled / 支付宝收银台、自动续费签约
+    //   https              SDAppModule.canOpen 判断网页链接
     //   weixin / wxopensdk SDAuthModule.wechatIsInstalled / 微信 OpenSDK 拉起微信
+    //   鸿蒙支付走系统的华为支付（Payment Kit），不需要声明 scheme；不接支付宝，所以没有 alipays
     "querySchemes": [
-      "alipays",
-      // 支付宝 SDK README 要求（未装支付宝时判断 / 转 H5 支付）
       "https",
       "weixin",
       "wxopensdk"
@@ -126,6 +125,26 @@
               }
             ],
             "domainVerify": true
+          }
+        ]
+      },
+      {
+        // --- sdk --- Push Kit 前台消息（极光「前台不展示」，见 ets/kuikly/modules/sdk/README.md「推送」）。
+        //   action.ohos.push.listener 整个应用只能有一个 Ability 声明；同一 skill 不能带非空 uris。
+        "name": "PushMessageAbility",
+        "srcEntry": "./ets/entryability/PushMessageAbility.ets",
+        "description": "$string:EntryAbility_desc",
+        "icon": "$media:layered_image",
+        "label": "$string:EntryAbility_label",
+        "startWindowIcon": "$media:startIcon",
+        "startWindowBackground": "$color:start_window_background",
+        "launchType": "singleton",
+        "exported": false,
+        "skills": [
+          {
+            "actions": [
+              "action.ohos.push.listener"
+            ]
           }
         ]
       }

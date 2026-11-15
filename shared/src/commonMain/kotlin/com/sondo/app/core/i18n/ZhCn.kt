@@ -57,6 +57,8 @@ internal object ZhCn {
         m["alipay_not_available"] = "支付宝暂未开通"
         m["alipay_product_unavailable"] = "该商品暂不可购买"
         m["alipay_busy"] = "支付宝暂时无法响应，请稍后重试"
+        m["huawei_pay_not_available"] = "华为支付暂未开通"
+        m["huawei_pay_busy"] = "华为支付暂时无法响应，请稍后重试"
         m["alipay_already_auto_renew"] = "你已开通自动续费"
         m["alipay_lucky_first_only"] = "幸运月卡仅限首次开通会员"
         m["alipay_intro_unavailable"] = "首月优惠暂不可用"

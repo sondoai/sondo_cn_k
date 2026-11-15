@@ -39,6 +39,18 @@ final class SDPayModule: KRBaseModule {
         SD.once(args).failure("unsupported")
     }
 
+    // MARK: - 华为支付（仅鸿蒙）
+
+    /// → {ok:false, error:"unsupported"}
+    func huaweiPay(_ args: NSDictionary) {
+        SD.once(args).failure("unsupported")
+    }
+
+    /// → {ok:false, error:"unsupported"}
+    func huaweiContract(_ args: NSDictionary) {
+        SD.once(args).failure("unsupported")
+    }
+
     // MARK: - 内购
 
     /// → {ok, available}

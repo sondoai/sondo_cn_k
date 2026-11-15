@@ -100,6 +100,22 @@ object ApiPaths {
     // 周期末取消支付宝自动续费。
     const val alipaySubscriptionCancel = "/member/alipay/subscription/cancel"
 
+    // --- 华为支付（鸿蒙）---
+    // 约定接口：字段与支付宝同名接口一致，差异见 docs/huawei-pay-api.md（后端按此实现）。
+    // 业务码沿用支付宝那一套（1046000001 渠道未开通、1046000005 订单不存在 …）。
+
+    // 购买华为支付积分包，返回商户服务器签好名的 `orderStr`，交给 paymentService.requestPayment。
+    const val huaweiTradeCreate = "/member/huawei/trade/create"
+
+    // 开通华为支付自动续费（签约代扣），返回签好名的 `contractStr`，交给 paymentService.requestContract。
+    const val huaweiSubscriptionCreate = "/member/huawei/subscription/create"
+
+    // 查询本人华为支付订单。路径后接 `/{orderId}`，回包与 alipayOrder 相同。
+    const val huaweiOrder = "/member/huawei/order"
+
+    // 周期末取消华为支付自动续费（解约）。
+    const val huaweiSubscriptionCancel = "/member/huawei/subscription/cancel"
+
     // 当前订阅渠道与是否可取消自动续费。
     const val subscriptionManagement = "/member/order/subscriptionManagement"
 

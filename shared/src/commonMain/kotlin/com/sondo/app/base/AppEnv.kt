@@ -48,7 +48,8 @@ object AppEnv {
 
     /**
      * 后端 Request-Source：2 android / 3 ios。
-     * 参考工程没有鸿蒙取值；鸿蒙与 Android 同走支付宝支付链路，暂按 2 上报，后端分配专用值后改这里。
+     * 参考工程没有鸿蒙取值，暂按 2 上报，后端分配专用值后改这里。
+     * 支付渠道不靠它区分：鸿蒙走独立的华为支付接口（ApiPaths.huawei*），见 docs/huawei-pay-api.md。
      */
     val requestSource: String
         get() = when {

@@ -17,12 +17,14 @@
  *   - onUnShowMessage（系统没展示）→ 广播 notificationReceived，Kuikly 侧弹应用内提示；
  *   - onArrivedMessage（系统已展示）→ 默认不广播，否则横幅 + 应用内提示会重复。
  *     如果实测 onUnShowMessage 不触发，把 EMIT_ARRIVED_AS_RECEIVED 改成 true（按 msgId 去重）。
- *     注意：鸿蒙通道消息的 onUnShowMessage 需要 PushMessageAbility + defaultMessageBackgroundData（未接，见 sdk/README.md）；
+ *     鸿蒙通道：前台 + foregroundShow=false 的消息由 entryability/PushMessageAbility 收到，
+ *     经 handleForegroundPayload → defaultMessageBackgroundData 触发 onUnShowMessage；
  *     onArrivedMessage 只在极光通道触发。
  */
 import { common, Want } from '@kit.AbilityKit';
 import { BusinessError } from '@kit.BasicServicesKit';
 import { notificationManager } from '@kit.NotificationKit';
+import { pushCommon } from '@kit.PushKit';
 import { KuiklyRenderCallback } from '@kuikly-open/render';
 import { AppEvent, AppEventListener, AppEvents } from '../../../support/AppEvents';
 import { EventBroadcaster, SD, SDHost, SDLog, SDReply, SDResult } from '../../../support/SDModuleSupport';
@@ -197,6 +199,28 @@ export class PushManager {
       return;
     }
     PushManager.deliverLaunch(reply);
+  }
+
+  /**
+   * PushMessageAbility 收到的 Push Kit 前台消息（'DEFAULT'）。交给极光解析，结果走 onUnShowMessage 回调。
+   * 极光还没 setup（隐私未同意 / 通知权限未授予）时直接丢弃，不碰 SDK。
+   */
+  static handleForegroundPayload(payload: pushCommon.PushPayload): void {
+    if (!PushManager.started) {
+      SDLog.w(TAG, 'foreground push before setup, dropped');
+      return;
+    }
+    try {
+      JPushAdapter.handleDefaultMessage(payload).then((handled: boolean) => {
+        if (!handled) {
+          SDLog.w(TAG, 'foreground push is not a JPush message, ignored');
+        }
+      }).catch((e: Object) => {
+        SDLog.w(TAG, `defaultMessageBackgroundData failed: ${SD.errMsg(e)}`);
+      });
+    } catch (e) {
+      SDLog.w(TAG, `defaultMessageBackgroundData threw: ${SD.errMsg(e as Object)}`);
+    }
   }
 
   static setBadge(count: number): void {

@@ -232,11 +232,15 @@ internal class AlipaySession(
 
     val userInitiated: Boolean get() = pageName.isNotEmpty()
 
-    /** 续费靠签约链接，积分包靠 orderStr。有凭证才能再次打开收银台。 */
-    val canReopenPayment: Boolean get() = if (trade) orderStr.isNotEmpty() else jumpSchema.isNotEmpty()
+    /** 续费靠签约凭证（支付宝签约链接 / 华为 contractStr），积分包靠 orderStr。有凭证才能再次打开收银台。 */
+    val canReopenPayment: Boolean
+        get() = if (trade) orderStr.isNotEmpty() else jumpSchema.isNotEmpty() || contractStr.isNotEmpty()
 
     var orderId = ""
     var jumpSchema = ""
+
+    /** 华为支付签约代扣的入参（鸿蒙）。 */
+    var contractStr = ""
     var orderStr = ""
     var productId = ""
 

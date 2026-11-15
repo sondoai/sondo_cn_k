@@ -11,24 +11,24 @@ Flutter 参考工程没有鸿蒙实现，本目录是新写的；**已用 hvigor
 
 | SDK | ohpm 依赖（实际安装版本） | 适配文件（唯一 import SDK 的地方） | 状态 | 核对时的修正 / 仍需真机确认的点 |
 |---|---|---|---|---|
-| 支付宝收银台 | `@cashier_alipay/cashiersdk` `15.8.37` | `pay/AlipayAdapter.ets` | 已核对 | `Pay.pay(order, showLoading?): Promise<Map<string,string>>` 与声明一致。**版本从 `^15.8.42` 改为钉死 `15.8.37`**：15.8.38 起包要求 API 13，hvigor 直接拒绝（`compatibleSdkVersion 12 cannot be lower than … 13`）。按包内 README 在 `querySchemes` 加了 `https`。未装支付宝时 SDK 用 router 打开自带 H5 收银台（未真机验证） |
+| 华为支付（Payment Kit） | 系统 Kit `@kit.PaymentKit`，无 ohpm 依赖 | `pay/HuaweiPayAdapter.ets` | 已核对 | 对照 DevEco SDK 的 `hms/ets/api/@hms.core.payment.paymentService.d.ts`：`requestPayment(UIAbilityContext, orderStr): Promise<void>`、`requestContract(UIAbilityContext, contractStr): Promise<void>`，reject 的 code 见适配文件头。**鸿蒙不接支付宝**（已删 `@cashier_alipay/cashiersdk` 与 `alipays` scheme）。后端接口尚未实现，约定见 `docs/huawei-pay-api.md` |
 | 微信 OpenSDK（仅授权） | `@tencent/wechat_open_sdk` `1.0.15` | `auth/WechatAdapter.ets` | 已核对 | 与 `WXAPIFactory` / `Base` / `SendAuth` 声明一致，无需修改（`errCode` 非空，`sendReq` 返回 `boolean \| Promise<boolean>`，`handleWant` 返回 `boolean`） |
-| 极光推送 | `@jg/push` `1.4.2` | `push/JPushAdapter.ets` | 已核对 | `init()` 与 `setClickWant()` 实际返回 Promise —— **原代码没处理，异步失败会成为未捕获的 rejection**；现在由 `PushManager` `.catch` 打日志。`extras` 声明为 `Record<string, Object>`（`PushPayload` 本来就兼容）。官方文档：`onArrivedMessage` 只在极光通道触发；鸿蒙通道的「前台不展示」(`onUnShowMessage`) 需要额外的 `PushMessageAbility`（见下文「推送」），本工程未接 |
+| 极光推送 | `@jg/push` `1.4.2` | `push/JPushAdapter.ets` | 已核对 | `init()` 与 `setClickWant()` 实际返回 Promise —— **原代码没处理，异步失败会成为未捕获的 rejection**；现在由 `PushManager` `.catch` 打日志。`extras` 声明为 `Record<string, Object>`（`PushPayload` 本来就兼容）。官方文档：`onArrivedMessage` 只在极光通道触发；鸿蒙通道的「前台不展示」(`onUnShowMessage`) 走 `entryability/PushMessageAbility.ets`（见下文「推送」），未真机验证 |
 | 推送 Want 兜底解析 | — | `push/PushPayload.ets` 的 `fromWant` | **未核对** | 键名没有文档；`@jg/push` 字节码字符串表里出现 `JMessageExtra`、`_j_data_`、`msg_id / n_title / n_content / n_extras`，现在两个键都尝试。只在 SDK 没回调时才用，不命中就返回空 |
 | 友盟统计 | `@umeng/common` `1.2.2`（`^1.1.12`）、`@umeng/analytics` `1.2.12` | `analytics/UmengAdapter.ets` | 已核对 | **修正：`onProfileSignIn(provider, puid)` 参数顺序与 Android 相反，原代码传反了**；`init()` 返回 Promise，现在 `.catch`。`preInit` 的 `UMConfig` 只有 `context` 必填（也有 `appKey? / channel?`，未使用，仍靠 `umconfig.json`）。**SDK 不导出 `onPageStart / onPageEnd`**，`pageStart / pageEnd` 保持空实现 |
 | 极光一键登录 | 未加依赖（`@jg/verify`） | `auth/JVerifyAdapter.ets`（生效的是 `UnsupportedJVerifyAdapter`） | **降级：不支持** | `auth/JVerifySdkAdapter.ets.draft` 是按官网文档写的草稿，不参与编译，全部未核对 |
 
-`@jg/push`、`@tencent/wechat_open_sdk`、`@cashier_alipay/cashiersdk` 钉死了版本；升级前对照 `entry/oh_modules/<包>/` 的声明复核对应的适配文件，
+`@jg/push`、`@tencent/wechat_open_sdk` 钉死了版本；升级前对照 `entry/oh_modules/<包>/` 的声明复核对应的适配文件，
 然后重新跑一遍命令行构建（见 `ohosApp/README.md`「命令行构建」）。
 
 ## 文件
 
 ```
-SDPayModule.ets          支付宝；iap* 一律 {ok:false, available:false, error:"unsupported"}
+SDPayModule.ets          华为支付（huaweiPay / huaweiContract）；alipay* 与 iap* 一律 unsupported
 SDAuthModule.ets         微信授权 + 一键登录编排（超时兜底、只回调一次）
 SDPushModule.ets         → push/PushManager
 SDAnalyticsModule.ets    友盟；init 之前的埋点直接丢弃
-pay/AlipayAdapter.ets
+pay/HuaweiPayAdapter.ets
 auth/WechatAdapter.ets   auth/WechatManager.ets（应用级单例，广播 wechatAuthResp）
 auth/JVerifyAdapter.ets  接口 + 「不支持」实现 + JVerifyProvider
 auth/JVerifySdkAdapter.ets.draft   草稿，未编译
@@ -41,12 +41,14 @@ Want（微信回跳、通知点击）不改 `EntryAbility`，统一从 `support/
 
 ## 行为要点
 
-**隐私**：四个模块在各自的 `wechatRegister` / `setup` / `init` / `alipayPay` 被调用之前不调用任何 SDK 接口。
+**隐私**：四个模块在各自的 `wechatRegister` / `setup` / `init` / `huaweiPay` 被调用之前不调用任何 SDK 接口。
 `PushManager` 在加载时就订阅了 `onNewWant`，但 setup 之前只是把 Want 留在内存里。
 （SDK 包是静态 import 的，包内的顶层代码会随应用启动加载；这一点无法在适配层规避。）
 
-**支付**：`alipayPay` 回 `{ok:true, resultStatus, result, memo}`；SDK 抛错或没给状态码回 `{ok:false, error}`；10 分钟没有任何结果回 `{ok:false, error:"timeout"}`。
-权益只认后端轮询。自动续费签约不走本模块（Kuikly 侧 `SDAppModule.openUrl` 拉 `alipays://`）。
+**支付**：各端渠道 iOS = Apple 内购、Android = 支付宝、**鸿蒙 = 华为支付**。
+积分包 `huaweiPay {orderStr}` → `requestPayment`；会员自动续费 `huaweiContract {contractStr}` → `requestContract`（签约代扣）。
+收银台走完回 `{ok:true}`；失败回 `{ok:false, error, code}`，`code=1001930000` 是用户取消；10 分钟没有结果回 `{ok:false, error:"timeout"}`。
+`orderStr` / `contractStr` 由商户服务器签名后经约定接口下发（`docs/huawei-pay-api.md`），原样透传。权益只认后端查单。
 
 **微信**：`wechatAuth` 回 `{ok, launched}`，授权结果走事件 `{event:"wechatAuthResp", errCode, code?, state?}`。
 `sendReq` 8 秒没返回时：应用已退到后台按 `launched:true`，仍在前台按 `{ok:false, launched:false, error:"timeout"}`。
@@ -60,11 +62,13 @@ Want（微信回跳、通知点击）不改 `EntryAbility`，统一从 `support/
 - 冷启动点击：启动 Want 在 setup 之后交给极光，回调结果只通过 `getLaunchNotification` 给出（读取后清空），不再发 `notificationOpened`，避免重复跳转。`getLaunchNotification` 最多等 SDK 1.5 秒。
 - 热启动点击：`notificationOpened`；没有任何页面在监听时暂存，等第一个 `addEventListener` 补发。
 - 前台通知：鸿蒙没有 Android 的「前台不弹横幅」开关，由**下发参数** `foregroundShow` 决定。
-  极光文档：消息走**鸿蒙系统通道**时，`onUnShowMessage` 只有在工程里额外建一个 UIAbility（如 `PushMessageAbility`），
-  在其 `onCreate` 里 `pushService.receiveMessage('DEFAULT', this, data => JPushInterface.defaultMessageBackgroundData(data))`
-  并按《HarmonyOS SDK 集成指南》「配置前台不展示功能」声明到 `module.json5` 之后才会触发；本工程**没有接**，所以目前前台的鸿蒙通道消息
-  只会由系统展示横幅，不会转成 `notificationReceived`。只有 `onUnShowMessage`（系统没展示）会转成 `notificationReceived`；`onArrivedMessage` 默认不转发（`push/PushManager.ets` 顶部的常量 `EMIT_ARRIVED_AS_RECEIVED`）。
-  要和 Android / iOS 一样「前台只弹应用内提示」，服务端给鸿蒙通道下发时要带 `foregroundShow=false`。
+  已按极光《HarmonyOS SDK 集成指南》「配置前台不展示功能」接好：`entryability/PushMessageAbility.ets`（`module.json5` 里声明
+  `action.ohos.push.listener`，全应用只能一个）在 `onCreate` 里 `pushService.receiveMessage('DEFAULT', …)`，
+  交给 `PushManager.handleForegroundPayload` → `JPushInterface.defaultMessageBackgroundData` → `onUnShowMessage`
+  → `notificationReceived`（Kuikly 侧弹应用内提示）。极光 setup 之前收到的直接丢弃。
+  `onArrivedMessage` 默认不转发（`push/PushManager.ets` 顶部的常量 `EMIT_ARRIVED_AS_RECEIVED`）。
+  **前提：服务端给鸿蒙通道下发时要带 `foregroundShow=false`**，否则系统照常弹横幅、不会走 PushMessageAbility。
+  未经真机验证：前台发一条，hilog 里应依次看到 `PushMessageAbility onCreate`、无 `not a JPush message` 告警、Kuikly 弹应用内提示。
 - `extras` 已拍平（兼容 JSON 字符串与 `cn.jpush.android.EXTRA` 嵌套）。
 - `setBadge` 用系统的 `notificationManager.setBadgeNumber`，不依赖极光。
 
@@ -73,10 +77,10 @@ Want（微信回跳、通知点击）不改 `EntryAbility`，统一从 `support/
 
 ## 已改的工程配置
 
-`entry/oh-package.json5`：加了上表 5 个依赖。
+`entry/oh-package.json5`：加了上表 4 个 ohpm 依赖（华为支付是系统 Kit，不需要依赖）。
 
 `entry/src/main/module.json5`：
-- `querySchemes`: `alipays`、`https`（支付宝 SDK README 要求）、`weixin`、`wxopensdk`
+- `querySchemes`: `https`、`weixin`、`wxopensdk`
 - `metadata`: `client_id` = **占位值 `REPLACE_WITH_AGC_APP_CLIENT_ID`**（Push Kit 必填，见下）
 - `EntryAbility` 的 home skill 的 `actions` 追加 `wxentity.action.open`
 - 权限没有新增（`INTERNET`、`GET_NETWORK_INFO` 宿主已声明）
@@ -100,15 +104,16 @@ Want（微信回跳、通知点击）不改 `EntryAbility`，统一从 `support/
 4. **微信开放平台**：给现有移动应用（`AppConstants.wechatAppId`）补充鸿蒙平台信息 —— Bundle ID 和应用的 `appIdentifier`
    （`bundleManager.getBundleInfoForSelf` 返回的 `signatureInfo.appIdentifier`），提交审核。
    微信按签名校验：调试时不要用 DevEco 的自动签名，用在 AGC 申请的调试证书手动签名，否则授权回跳会失败。
-5. **支付宝开放平台**：确认应用（APPID）已开通「App 支付」，并按开放平台的要求登记鸿蒙应用信息。
-   服务端下单接口不变（`/member/alipay/trade/create` 返回的 `orderStr` 直接透传给 SDK）。
-   公开资料提到 SDK ≥ 15.8.27 要求支付宝客户端 ≥ 10.6.50（未核对）；未安装支付宝时 SDK 的行为没有核对过，Kuikly 侧应先用 `alipayIsInstalled` 判断。
+5. **华为支付**：在 AGC 开通华为支付（商户号、商户证书 / 密钥），签约代扣需单独申请；登记应用签名证书的 SHA256 指纹
+   （没登记会报 `1001860002` 应用未被授权）。后端按 `docs/huawei-pay-api.md` 实现 4 个 `/member/huawei/*` 接口，
+   `subscriptionManagement` 增加 `provider=HUAWEI` / `action=CANCEL_HUAWEI_AUTO_RENEW`。
+   会员、积分是虚拟商品，上架前和华为应用市场确认允许走 Payment Kit。
 
 ### 可选
 
 - `ohos.permission.APP_TRACKING_CONSENT`（OAID）：极光、友盟的文档都建议申请，用于设备标识。没有声明，SDK 仍可工作。
   要加的话需要在 `module.json5` 声明（带 `reason` 字符串资源和 `usedScene`），并在隐私同意后运行时申请。
-- 极光自定义消息 / 通知扩展 / VoIP：未接（参考工程没用到）。需要时按极光文档加 `action.ohos.push.listener` 的 Ability 与 `proxyData`。
+- 极光自定义消息 / 通知扩展 / VoIP：未接（参考工程没用到）。需要时按极光文档在 `PushMessageAbility` 里再 `receiveMessage` 对应类型（`action.ohos.push.listener` 已被它占用，不能再声明第二个），并配 `proxyData`。
 
 ## 如何补完未核对的部分
 

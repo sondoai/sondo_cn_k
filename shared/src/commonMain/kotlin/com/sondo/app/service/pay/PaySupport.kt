@@ -112,6 +112,7 @@ class PayOutcome(
         const val TYPE_RESTORE = "restore"
         const val CHANNEL_APPLE = "apple"
         const val CHANNEL_ALIPAY = "alipay"
+        const val CHANNEL_HUAWEI = "huawei"
 
         /** 页面在 `on(Events.PAY_RESULT)` 里还原。 */
         fun fromJson(json: JSONObject): PayOutcome = PayOutcome(

@@ -37,7 +37,7 @@ object Events {
     // 支付
     /**
      * 一次支付 / 恢复购买有了结果（PayService 广播，页面用 PayOutcome.fromJson 还原）。
-     * data: {type: "purchase"|"restore", channel: "apple"|"alipay",
+     * data: {type: "purchase"|"restore", channel: "apple"|"alipay"|"huawei",
      *   status: "success"|"canceled"|"pending"|"failed"|"timeout"|"superseded", reason, pageName, productId, orderId,
      *   subscription, isNewOrder, userInitiated, late, pageClosed, message, code?,
      *   successCount / failureCount / hasSubscribe（仅 restore）}

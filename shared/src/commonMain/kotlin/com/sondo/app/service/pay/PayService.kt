@@ -148,6 +148,16 @@ object PayService {
     /** 平台适配入口；iOS 走 StoreKit 2，其余（Android / 鸿蒙）走支付宝。 */
     private val isIos: Boolean get() = AppEnv.isIOS
 
+    /** 鸿蒙的国内渠道是华为支付；Android 是支付宝。两者共用下面「支付宝」一节的建单 / 轮询 / 补单流程。 */
+    private val isHuaweiPay: Boolean get() = AppEnv.isOhos
+
+    /** 国内渠道的回执 channel。 */
+    private val cnChannel: String get() = if (isHuaweiPay) PayOutcome.CHANNEL_HUAWEI else PayOutcome.CHANNEL_ALIPAY
+
+    /** 「渠道繁忙」「渠道未开通」两条文案带渠道名，按平台取。 */
+    private val busyKey: String get() = if (isHuaweiPay) "huawei_pay_busy" else "alipay_busy"
+    private val notAvailableKey: String get() = if (isHuaweiPay) "huawei_pay_not_available" else "alipay_not_available"
+
     /** 未登录不得验单或完成交易，避免把权益记到错误账户。 */
     private val isLoggedIn: Boolean get() = UserStore.isLogin
 
@@ -1045,7 +1055,7 @@ object PayService {
         status: String = PayStatus.FAILED,
     ): PayOutcome = PayOutcome(
         type = PayOutcome.TYPE_PURCHASE,
-        channel = if (isIos) PayOutcome.CHANNEL_APPLE else PayOutcome.CHANNEL_ALIPAY,
+        channel = if (isIos) PayOutcome.CHANNEL_APPLE else cnChannel,
         status = status,
         reason = reason,
         pageName = pageName,
@@ -1553,7 +1563,7 @@ object PayService {
         late: Boolean = false,
     ): PayOutcome = PayOutcome(
         type = PayOutcome.TYPE_PURCHASE,
-        channel = PayOutcome.CHANNEL_ALIPAY,
+        channel = cnChannel,
         status = status,
         reason = reason,
         pageName = session.pageName,
@@ -1588,7 +1598,7 @@ object PayService {
         }
     }
 
-    /** Android / 鸿蒙 积分包下单。未安装支付宝不建单；SDK 结果不能当到账。 */
+    /** Android（支付宝）/ 鸿蒙（华为支付）积分包下单。Android 未安装支付宝不建单；SDK 结果不能当到账。 */
     private suspend fun submitAlipayTrade(currentItem: GoodsModel, pageName: String, attempt: PayAttempt) {
         fun reject(reason: String, messageKey: String?) {
             val message = messageKey?.tr ?: ""
@@ -1600,7 +1610,7 @@ object PayService {
             return
         }
         if (alipayChannelClosed) {
-            reject(PayReason.CHANNEL_CLOSED, "alipay_not_available")
+            reject(PayReason.CHANNEL_CLOSED, notAvailableKey)
             return
         }
         if (!Api.hasNetwork) {
@@ -1672,7 +1682,7 @@ object PayService {
             launchAlipayOrder(session)
         } catch (e: Throwable) {
             log("支付宝积分支付未完成: $e")
-            if (isAlipaySessionActive(session)) PayUi.toast("alipay_busy".tr)
+            if (isAlipaySessionActive(session)) PayUi.toast(busyKey.tr)
         } finally {
             if (isAlipaySessionActive(session)) {
                 session.submitting = false
@@ -1682,7 +1692,7 @@ object PayService {
         }
     }
 
-    /** Android / 鸿蒙 会员下单。积分包走 [submitAlipayTrade]。 */
+    /** Android（支付宝签约链接）/ 鸿蒙（华为支付签约代扣）会员下单。积分包走 [submitAlipayTrade]。 */
     private suspend fun submitAlipay(currentItem: GoodsModel, pageName: String, attempt: PayAttempt) {
         fun reject(reason: String, messageKey: String?) {
             val message = messageKey?.tr ?: ""
@@ -1694,7 +1704,7 @@ object PayService {
             return
         }
         if (alipayChannelClosed) {
-            reject(PayReason.CHANNEL_CLOSED, "alipay_not_available")
+            reject(PayReason.CHANNEL_CLOSED, notAvailableKey)
             return
         }
         if (!Api.hasNetwork) {
@@ -1742,6 +1752,7 @@ object PayService {
             }
             session.orderId = created.orderId
             session.jumpSchema = created.jumpSchema
+            session.contractStr = created.contractStr
             session.productId = productId
             session.payAmount = created.payAmount
             savePendingAlipayOrder(session)
@@ -1754,7 +1765,7 @@ object PayService {
             launchAlipayOrder(session)
         } catch (e: Throwable) {
             log("支付宝支付未完成: $e")
-            if (isAlipaySessionActive(session)) PayUi.toast("alipay_busy".tr)
+            if (isAlipaySessionActive(session)) PayUi.toast(busyKey.tr)
         } finally {
             // 外部支付与后台确认不占用阻塞遮罩，重复点击仍受当前提交/到账收尾保护。
             if (isAlipaySessionActive(session)) {
@@ -1797,7 +1808,7 @@ object PayService {
         val result = PayBackend.queryAlipayOrder(session.orderId)
         if (!isAlipaySessionActive(session)) return true
         if (result.orderId.isNotEmpty() && result.orderId != session.orderId) {
-            val message = "alipay_busy".tr
+            val message = busyKey.tr
             PayUi.toast(message)
             settleAlipay(session, alipayOutcome(session, PayStatus.FAILED, PayReason.BUSY, message), terminal = false)
             return true
@@ -1806,10 +1817,11 @@ object PayService {
             clearPendingAlipayOrder(session)
             session.orderId = ""
             session.jumpSchema = ""
+            session.contractStr = ""
             return false
         }
         if (result.code != 0) {
-            val message = alipayCreateMessage(result.code) ?: "alipay_busy".tr
+            val message = alipayCreateMessage(result.code) ?: busyKey.tr
             endAlipayAttempt(
                 session,
                 alipayOutcome(session, PayStatus.FAILED, PayReason.BUSY, message, code = result.code),
@@ -1892,13 +1904,15 @@ object PayService {
     }
 
     private suspend fun launchAlipayOrder(session: AlipaySession) {
-        if (session.trade) {
+        if (isHuaweiPay) {
+            if (launchHuaweiOrder(session)) return
+        } else if (session.trade) {
             if (session.orderStr.isNotEmpty()) {
                 val status = payWithAlipaySdk(session.orderStr)
                 if (!isAlipaySessionActive(session)) return
                 if (status == null) {
                     // 走到这里已经确认装了支付宝，收银台没跑完按暂时不可用提示。
-                    PayUi.toast("alipay_busy".tr)
+                    PayUi.toast(busyKey.tr)
                 } else if (status == "6001") {
                     // 用户在收银台取消：只提示未完成并查一次，不轮询一分钟。原订单留着，再点同一商品可重开。
                     session.lastNoticeStatus = "WAITING"
@@ -1929,6 +1943,44 @@ object PayService {
         }
         // SDK 或签约页返回后都查单。缺少凭证时只查，不重新建单。
         startAlipayPoll(session)
+    }
+
+    /**
+     * 鸿蒙：拉起华为支付收银台（积分包 requestPayment / 会员 requestContract）。
+     * 返回 true 表示不用再开轮询（用户取消已查一次单，或会话已失效）；其余情况由调用方开始轮询。
+     * 收银台成功也不能当到账，只认后端查单。
+     */
+    private suspend fun launchHuaweiOrder(session: AlipaySession): Boolean {
+        val credential = if (session.trade) session.orderStr else session.contractStr
+        if (credential.isEmpty()) return false
+        val raw = try {
+            if (session.trade) payModule().huaweiPay(credential) else payModule().huaweiContract(credential)
+        } catch (e: Throwable) {
+            log("拉起华为支付收银台失败: $e")
+            null
+        }
+        if (!isAlipaySessionActive(session)) return true
+        if (raw == null || !raw.optBoolean("ok", false)) {
+            val code = raw?.optInt("code", 0) ?: 0
+            if (code == SDPayModule.HUAWEI_CANCELED) {
+                // 用户在收银台取消：与支付宝 6001 一样只提示未完成并查一次。原订单留着，再点同一商品可重开。
+                session.lastNoticeStatus = "WAITING"
+                val message = "alipay_payment_incomplete".tr
+                PayUi.toast(message)
+                stopAlipayPoll(session)
+                settleAlipay(
+                    session,
+                    alipayOutcome(session, PayStatus.CANCELED, PayReason.USER_CANCELED, message),
+                    terminal = false,
+                )
+                PayHost.spawn { pollAlipayOnce(session) }
+                return true
+            }
+            log("华为支付未完成: code=$code error=${raw?.optString("error", "")}")
+            // 1001930002「交易已处理」等情况仍要查单确认，这里只提示繁忙。
+            PayUi.toast(busyKey.tr)
+        }
+        return false
     }
 
     /** [immediate] 为 false 时只等下一拍，用于刷新权益失败后的重试，避免立刻重入。 */
@@ -2127,8 +2179,8 @@ object PayService {
             payUserId() == session.userId
     }
 
-    /** 未安装时积分包不建单。 */
-    private fun isAlipayInstalled(): Boolean = try {
+    /** 未安装时积分包不建单。鸿蒙的华为支付是系统能力，不需要安装。 */
+    private fun isAlipayInstalled(): Boolean = if (isHuaweiPay) true else try {
         payModule().alipayIsInstalled()
     } catch (e: Throwable) {
         log("检查支付宝安装失败: $e")
@@ -2179,6 +2231,7 @@ object PayService {
                         session.orderStr = data.opt("orderStr") as? String ?: ""
                     } else {
                         session.jumpSchema = data.opt("jumpSchema") as? String ?: ""
+                        session.contractStr = data.opt("contractStr") as? String ?: ""
                     }
                     session.productId = data.opt("productId") as? String ?: ""
                     if (session.orderId.isNotEmpty()) return true
@@ -2200,6 +2253,7 @@ object PayService {
             payload.put("orderStr", session.orderStr)
         } else {
             payload.put("jumpSchema", session.jumpSchema)
+            if (session.contractStr.isNotEmpty()) payload.put("contractStr", session.contractStr)
         }
         payload.put("productId", session.productId)
         Sp.setString(pendingAlipayKey(session), payload.toString())
@@ -2224,9 +2278,9 @@ object PayService {
 
     private fun alipayCreateMessage(code: Int?): String? = when (code) {
         1004040004 -> "alipay_bind_mobile".tr
-        1046000001 -> "alipay_not_available".tr
+        1046000001 -> notAvailableKey.tr
         1046000002 -> "alipay_product_unavailable".tr
-        1046000003 -> "alipay_busy".tr
+        1046000003 -> busyKey.tr
         1046000004 -> "alipay_already_auto_renew".tr
         1046000008 -> "alipay_lucky_first_only".tr
         1046000009 -> "alipay_intro_unavailable".tr
@@ -2244,7 +2298,7 @@ object PayService {
     // =============================================================================================
 
     /**
-     * 设置页「取消订阅」：iOS 打开系统订阅说明页；Android / 鸿蒙 查询并确认取消支付宝自动续费。
+     * 设置页「取消订阅」：iOS 打开系统订阅说明页；Android / 鸿蒙 查询并确认取消支付宝 / 华为支付自动续费。
      * 在页面自己的协程里调用。
      * @param confirm 弹确认框（文案 `alipay_cancel_confirm`），返回用户是否确认。
      */
@@ -2270,7 +2324,7 @@ object PayService {
             val state = PayBackend.fetchAlipayRenewState()
             if (!AuthSession.isCurrent(revision)) return false
             if (state.code != 0) {
-                pager?.toast("alipay_busy".tr)
+                pager?.toast(busyKey.tr)
                 return false
             }
             if (!state.canCancelAlipay) {
@@ -2288,7 +2342,7 @@ object PayService {
                 )
                 return true
             }
-            pager?.toast(if (result.code == 1046000006) "alipay_no_auto_renew".tr else "alipay_busy".tr)
+            pager?.toast(if (result.code == 1046000006) "alipay_no_auto_renew".tr else busyKey.tr)
             return false
         } finally {
             cancelingAlipayPagerId = ""

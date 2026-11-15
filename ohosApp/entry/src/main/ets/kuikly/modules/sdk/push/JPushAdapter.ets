@@ -15,10 +15,11 @@
  * 已知（来自官方文档，需要真机确认的行为）：
  *   - 鸿蒙 SDK 没有 Android 的 setAuth(boolean) / production：隐私合规靠「setup 之前不调用任何 JPush 接口」；
  *   - onArrivedMessage：远端通知只有极光通道触发，鸿蒙系统通道不触发；
- *   - onUnShowMessage（前台不展示）走鸿蒙通道时，需要额外的 PushMessageAbility +
- *     pushService.receiveMessage('DEFAULT', …) → JPushInterface.defaultMessageBackgroundData（本工程未接，见 sdk/README.md）。
+ *   - onUnShowMessage（前台不展示）走鸿蒙通道时，由 entryability/PushMessageAbility 的
+ *     pushService.receiveMessage('DEFAULT', …) → handleDefaultMessage → JPushInterface.defaultMessageBackgroundData 触发。
  */
 import { common, Want } from '@kit.AbilityKit';
+import { pushCommon } from '@kit.PushKit';
 import {
   CallBackMsg,
   JAliasMessage,
@@ -160,6 +161,16 @@ export class JPushAdapter {
     const rid: string = await JPushInterface.getRegistrationId();
     // <<< SDK CALL SITE
     return textOf(rid);
+  }
+
+  /**
+   * 把 Push Kit 'DEFAULT' 类型的前台消息（PushMessageAbility 收到）交给 SDK。
+   * 是极光消息时 SDK 回调 onUnShowMessage 并 resolve true；不是极光消息时 resolve false。
+   */
+  static handleDefaultMessage(payload: pushCommon.PushPayload): Promise<boolean> {
+    // >>> SDK CALL SITE
+    return JPushInterface.defaultMessageBackgroundData(payload);
+    // <<< SDK CALL SITE
   }
 
   /** 把 Ability 收到的 Want 交给 SDK；是通知点击时 SDK 上报点击并回调 onClickMessage，否则忽略。 */
