@@ -656,6 +656,7 @@ internal class MvListDetailPage : BasePager() {
         val imageH = (screenWidth - 64f) * 9f / 16f
         showDialog(dismissOnMask = false) { handle ->
             qualityUpgradeDialog(
+                width = page.screenWidth,
                 point = point,
                 imageH = imageH,
                 onClose = {
@@ -1006,9 +1007,19 @@ private fun ViewContainer<*, *>.moreSheetBtn(title: String, image: String, onTap
 }
 
 /** 画质升级说明弹窗（Dart `VideoIntroductionWidget` 带标题的分支）。 */
-private fun ViewContainer<*, *>.qualityUpgradeDialog(point: Int, imageH: Float, onClose: () -> Unit, onBtnTap: () -> Unit) {
+private fun ViewContainer<*, *>.qualityUpgradeDialog(
+    width: Float,
+    point: Int,
+    imageH: Float,
+    onClose: () -> Unit,
+    onBtnTap: () -> Unit,
+) {
     View {
-        attr { padding(16f) }
+        // 弹窗容器按内容收缩：必须给宽度，否则标题行、按钮都缩成内容宽，图片容器宽度为 0 显示空白
+        attr {
+            width(width)
+            padding(16f)
+        }
         View {
             attr {
                 padding(16f)
@@ -1039,17 +1050,12 @@ private fun ViewContainer<*, *>.qualityUpgradeDialog(point: Int, imageH: Float, 
                 }
             }
             View { attr { height(16f) } }
-            View {
+            Image {
                 attr {
+                    size(width - 64f, imageH)
                     borderRadius(10f)
-                    height(imageH)
-                }
-                Image {
-                    attr {
-                        absolutePositionAllZero()
-                        src(ImageUri.commonAssets(AssetsImage.imageQuality))
-                        resizeCover()
-                    }
+                    src(ImageUri.commonAssets(AssetsImage.imageQuality))
+                    resizeCover()
                 }
             }
             View { attr { height(16f) } }

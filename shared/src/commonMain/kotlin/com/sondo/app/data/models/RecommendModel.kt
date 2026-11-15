@@ -21,7 +21,7 @@ data class RecommendModel(
     /** 创建时间 */
     var createTime: Long = 0L,
 ) {
-    val createTimeStr: String get() = ModelDate.formatMMMdyyyy(createTime)
+    val createTimeStr: String get() = ModelDate.formatDate(createTime)
 
     fun toJson(): JSONObject = JSONObject()
         .put("id", id)

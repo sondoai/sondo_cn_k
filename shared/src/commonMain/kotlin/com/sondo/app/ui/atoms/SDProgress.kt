@@ -239,6 +239,11 @@ class SDSeekBarAttr : ComposeAttr() {
     var loading: Boolean by observable(false)
     /** 加载扫光颜色 */
     var loadingColor: Color by observable(SDColors.white50)
+    /**
+     * 没有时长时是否隐藏整条（Dart VideoProgressWidget 的 opacity 0）。音乐详情切歌时时长会短暂为 0，
+     * 来回隐藏 / 显示靠透明度动画恢复，真机上偶发停在不可见；那里设为 false，只显示空轨道。
+     */
+    var hideWithoutDuration: Boolean = true
 }
 
 class SDSeekBarEvent : ComposeEvent() {
@@ -304,6 +309,13 @@ class SDSeekBarView : ComposeView<SDSeekBarAttr, SDSeekBarEvent>() {
             return (p / d).coerceIn(0f, 1f)
         }
 
+    /**
+     * 轨道圆角：不超过半高。以前固定 4，轨道只有 2~3 高时 Android 按超出半高的圆角裁剪，
+     * 已播放段右端被削掉约 4，看起来和滑块断成两段。
+     */
+    internal val trackRadius: Float
+        get() = (if (isDragging) attr.activeTrackHeight else attr.trackHeight) / 2f
+
     private val bufferedRatio: Float
         get() {
             val d = attr.duration
@@ -318,7 +330,7 @@ class SDSeekBarView : ComposeView<SDSeekBarAttr, SDSeekBarEvent>() {
                 height(ctx.attr.touchHeight)
                 padding(0f, ctx.attr.paddingH, 0f, ctx.attr.paddingH)
                 if (ctx.attr.alignBottom) justifyContentFlexEnd() else justifyContentCenter()
-                val visible = ctx.attr.duration > 0f || ctx.attr.loading
+                val visible = ctx.attr.duration > 0f || ctx.attr.loading || !ctx.attr.hideWithoutDuration
                 opacity(if (visible) 1f else 0f)
                 animate(Animation.linear(0.3f), visible)
                 // 没有时长（加载中 / 隐藏）时不吃触摸，点按落到下面的播放器上
@@ -362,9 +374,10 @@ class SDSeekBarView : ComposeView<SDSeekBarAttr, SDSeekBarEvent>() {
             View {
                 attr {
                     height(if (ctx.isDragging) ctx.attr.activeTrackHeight else ctx.attr.trackHeight)
-                    borderRadius(4f)
+                    borderRadius(ctx.trackRadius)
                     backgroundColor(ctx.attr.inactiveColor)
-                    animate(Animation.easeOut(0.18f), ctx.isDragging)
+                    // 不要在轨道上挂 animate(…, isDragging)：Android 上这段动画跑过一次后，轨道里已播放段的宽度不再更新，
+                    // 拖动松手后已播放段停在松手位置、滑块继续走，进度条断成两段（音乐详情真机问题）。拖动加粗改为即时变化。
                 }
                 event {
                     layoutFrameDidChange { ctx.trackWidth = it.width }
@@ -374,7 +387,7 @@ class SDSeekBarView : ComposeView<SDSeekBarAttr, SDSeekBarEvent>() {
                     attr {
                         absolutePosition(top = 0f, left = 0f, bottom = 0f)
                         width(ctx.trackWidth * ctx.bufferedRatio)
-                        borderRadius(4f)
+                        borderRadius(ctx.trackRadius)
                         backgroundColor(ctx.attr.bufferedColor)
                     }
                 }
@@ -383,33 +396,36 @@ class SDSeekBarView : ComposeView<SDSeekBarAttr, SDSeekBarEvent>() {
                     View {
                         attr {
                             absolutePositionAllZero()
-                            borderRadius(4f)
+                            borderRadius(ctx.trackRadius)
                             overflow(true)
                             touchEnable(false)
                         }
                         SDTrackSweep { attr { color = ctx.attr.loadingColor } }
                     }
                 }
-                // 已播放
+                // 已播放 + 滑块：滑块挂在已播放段的末端（同一个容器），两者只跟着一个宽度走，不会断成两段
                 View {
                     attr {
                         absolutePosition(top = 0f, left = 0f, bottom = 0f)
                         width(ctx.trackWidth * ctx.displayRatio)
-                        borderRadius(4f)
-                        backgroundColor(ctx.attr.activeColor)
                     }
-                }
-                // 滑块（以自身中心对齐进度点）
-                View {
-                    attr {
-                        val r = if (ctx.isDragging) ctx.attr.activeThumbRadius else ctx.attr.thumbRadius
-                        val th = if (ctx.isDragging) ctx.attr.activeTrackHeight else ctx.attr.trackHeight
-                        positionAbsolute()
-                        left(ctx.trackWidth * ctx.displayRatio - r)
-                        top(th / 2f - r)
-                        size(r * 2f, r * 2f)
-                        borderRadius(r)
-                        backgroundColor(ctx.attr.activeColor)
+                    View {
+                        attr {
+                            absolutePositionAllZero()
+                            borderRadius(ctx.trackRadius)
+                            backgroundColor(ctx.attr.activeColor)
+                        }
+                    }
+                    // 滑块（以自身中心对齐已播放段末端）
+                    View {
+                        attr {
+                            val r = if (ctx.isDragging) ctx.attr.activeThumbRadius else ctx.attr.thumbRadius
+                            val th = if (ctx.isDragging) ctx.attr.activeTrackHeight else ctx.attr.trackHeight
+                            absolutePosition(top = th / 2f - r, right = -r)
+                            size(r * 2f, r * 2f)
+                            borderRadius(r)
+                            backgroundColor(ctx.attr.activeColor)
+                        }
                     }
                 }
             }

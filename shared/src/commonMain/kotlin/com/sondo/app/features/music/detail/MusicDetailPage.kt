@@ -665,16 +665,15 @@ internal class MusicDetailPage : BasePager() {
 
     fun copyLyrics() {
         try {
-            val lines = PlayerService.lyricContents
-            if (lines.isEmpty()) return
-            HostNative.app.copyToClipboard(lines.joinToString("\n") { it.lyric })
-            if (AppEnv.isAndroid) {
-                // Android 13 及以上系统自带复制提示
-                val sdk = HostNative.app.getDeviceInfo().optInt("sdkInt", 0)
-                if (sdk < 32) toast("copy_to_clipboard".tr)
-            } else {
-                toast("copy_to_clipboard".tr)
+            // 以屏幕上显示的歌词为准；播放器缓存在切歌瞬间可能还是空的
+            val lines = PlayerService.lyricContents.ifEmpty { lyricLines.toList() }
+            if (lines.isEmpty()) {
+                toast("copy_failed".tr)
+                return
             }
+            HostNative.app.copyToClipboard(lines.joinToString("\n") { it.lyric })
+            // 参考工程在 Android 13+ 依赖系统自带的剪贴板提示，但不少国产系统不弹，点了像没反应：统一给提示
+            toast("copy_to_clipboard".tr)
         } catch (e: Throwable) {
             toast("copy_failed".tr)
         }

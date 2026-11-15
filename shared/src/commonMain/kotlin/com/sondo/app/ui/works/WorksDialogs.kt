@@ -109,7 +109,7 @@ fun BasePager.showDialogActionsSong(request: SongActionsRequest): DialogHandle? 
                     attr {
                         marginTop(8f)
                         val s = ws.actionSong
-                        text(ModelDate.formatMMMdyyyy(s?.updateTime ?: (s?.createTime ?: 0L)))
+                        text(ModelDate.formatDate(s?.updateTime ?: (s?.createTime ?: 0L)))
                         fontSize(12f)
                         color(Color(0x8AFFFFFFL))
                     }

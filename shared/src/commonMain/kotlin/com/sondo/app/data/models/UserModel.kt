@@ -112,7 +112,7 @@ data class CreditRecordModel(
     /** 正数表示增加，负数表示减少 */
     var point: Int = 0,
 ) {
-    val formattedTimestamp: String get() = ModelDate.formatMMMdyyyy(createTime)
+    val formattedTimestamp: String get() = ModelDate.formatDate(createTime)
 
     val formattedAmount: String get() = if (point > 0) "+$point" else "$point"
 

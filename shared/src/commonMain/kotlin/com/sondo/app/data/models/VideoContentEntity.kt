@@ -177,11 +177,11 @@ data class VideoContentEntity(
     /** 创建时间展示。 */
     val timeStr: String get() = ModelDate.formatDateTime(createTime)
 
-    /** 创建时间英文格式 `MMM d, yyyy`。 */
+    /** 创建时间 `yyyy年MM月dd日`。 */
     val createTimeStr: String
         get() {
             if (createTime == 0L) return ""
-            return ModelDate.formatMMMdyyyy(createTime)
+            return ModelDate.formatDate(createTime)
         }
 
     /** 是否处于图片生成阶段（仅 MV）。 */

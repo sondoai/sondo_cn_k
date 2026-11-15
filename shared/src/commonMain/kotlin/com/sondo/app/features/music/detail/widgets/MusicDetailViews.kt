@@ -610,6 +610,8 @@ private fun ViewContainer<*, *>.DetailProgressBar(ctx: MusicDetailPage) {
                 bufferedColor = Color.TRANSPARENT
                 showTooltip = false
                 alignBottom = false
+                // 切歌时时长短暂为 0：保持显示空轨道，不做隐藏 / 显示切换
+                hideWithoutDuration = false
             }
             event {
                 onSeekStart { ctx.onSeekStart(it) }

@@ -270,6 +270,14 @@ internal class MvDescriptionInputView : ComposeView<MvDescriptionInputAttr, Comp
     private var lastChangeAt = 0L
     private var spans by observable(InputSpans())
     private var myWriter: ((String, Int?) -> Unit)? = null
+
+    /**
+     * 最近由程序写进输入框的文本。原生输入框在程序写入后会异步回调 textDidChange，带回的是写入当时的文本；
+     * AI 优化流式追加时回调到达已经落后好几段，若当成用户编辑：带回开头清空时的 "" 会把描述清掉，
+     * 带回缺了后面 `@玩法` 的旧文本又会被当成「删除标签」把标签整块删掉。这些回声一律忽略。
+     */
+    private val echoes = ArrayList<String>()
+    private var lastWriteAt = 0L
     private var myOpener: ((String?) -> Unit)? = null
 
     private val form: MvCreateForm get() = attr.form
@@ -321,6 +329,9 @@ internal class MvDescriptionInputView : ComposeView<MvDescriptionInputAttr, Comp
 
     /** 写入文本并重设高亮与光标；[fromUser] 为用户输入后的修正（同样回写表单）。 */
     private fun applyText(text: String, cursor: Int?, fromUser: Boolean) {
+        echoes.add(text)
+        if (echoes.size > ECHO_HISTORY) echoes.removeAt(0)
+        lastWriteAt = nowMs()
         lastText = text
         lastSignature = signature(text)
         lastChangeAt = nowMs()
@@ -339,6 +350,12 @@ internal class MvDescriptionInputView : ComposeView<MvDescriptionInputAttr, Comp
     private fun onUserText(newText: String) {
         val old = lastText
         if (newText == old) return
+        // 程序写入的回声（AI 输出中输入框不可编辑，此时的回调都是回声）
+        if (form.isTextOutputting || form.isStreamLoading) return
+        // 回声只会紧跟在写入之后到达；过了这段时间再出现同样的文本是用户自己改的（比如优化完退格回到某个中间结果）
+        if (nowMs() - lastWriteAt < ECHO_WINDOW_MS && echoes.contains(newText)) return
+        // 真正的用户输入：之前的写入都已落后，清掉
+        echoes.clear()
         lastChangeAt = nowMs()
         val names = catalog().names
         val expanded = expandIdeaTagDeletion(old, newText, names)
@@ -449,6 +466,12 @@ internal class MvDescriptionInputView : ComposeView<MvDescriptionInputAttr, Comp
 }
 
 // ============================================================================
+/** 记住的程序写入次数：流式输出一次几十段，回调最多落后几段。 */
+private const val ECHO_HISTORY = 64
+
+/** 程序写入后多久内到达的同文本回调算回声（毫秒）。 */
+private const val ECHO_WINDOW_MS = 1000L
+
 // 标签列表弹层（Dart `showDescriptionIdeasSheet` / `_DescriptionIdeasSheet`）
 // ============================================================================
 

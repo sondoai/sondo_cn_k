@@ -13,7 +13,6 @@ object ModelDate {
     /** 本地时区偏移（毫秒）。 */
     const val LOCAL_OFFSET_MS = 8L * 3600_000L
 
-    private val MONTHS_EN = arrayOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
 
     class Parts(
         val year: Int,
@@ -69,10 +68,13 @@ object ModelDate {
         return era * 146_097L + doe - 719_468L
     }
 
-    /** DateFormat('MMM d, yyyy', 'en_US')，如 `Nov 3, 2026`。 */
-    fun formatMMMdyyyy(epochMs: Long): String {
+    /**
+     * 统一的日期展示格式 `yyyy年MM月dd日`（本地时间），如 `2026年11月03日`。
+     * 参考工程是英文 `MMM d, yyyy`（`Nov 3, 2026`），国内版按产品要求改为中文年月日。
+     */
+    fun formatDate(epochMs: Long): String {
         val p = localParts(epochMs)
-        return "${MONTHS_EN[p.month - 1]} ${p.day}, ${p.year}"
+        return "${p.year}年${pad2(p.month)}月${pad2(p.day)}日"
     }
 
     /** `yyyy-MM-dd HH:mm:ss`（本地时间）。 */
@@ -83,7 +85,7 @@ object ModelDate {
 
     fun pad2(v: Int): String = if (v < 10) "0$v" else v.toString()
 
-    /** 对应 DateUtils.formatDateTime：刚刚 / N 分钟前 / N 小时前 / N 天前 / MMM d, yyyy。 */
+    /** 对应 DateUtils.formatDateTime：刚刚 / N 分钟前 / N 小时前 / N 天前 / yyyy年MM月dd日。 */
     fun formatDateTime(epochMs: Long): String {
         val diff = now() - epochMs
         val inDays = diff / 86_400_000L
@@ -98,7 +100,7 @@ object ModelDate {
         } else if (inDays < 7) {
             return "days_ago".trParams("days" to inDays.toString())
         }
-        return formatMMMdyyyy(epochMs)
+        return formatDate(epochMs)
     }
 
     /**

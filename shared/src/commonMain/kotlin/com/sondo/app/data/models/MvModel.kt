@@ -178,7 +178,7 @@ data class MvModel(
     /** createTime 相对时间 */
     val timeStr: String get() = ModelDate.formatDateTime(createTime)
 
-    val createTimeStr: String get() = ModelDate.formatMMMdyyyy(createTime)
+    val createTimeStr: String get() = ModelDate.formatDate(createTime)
 
     /** taskPhase 等于 0：以前的数据并且是生图阶段才能进入以前的故事版 */
     val isImagePhase: Boolean get() = taskPhase == 0

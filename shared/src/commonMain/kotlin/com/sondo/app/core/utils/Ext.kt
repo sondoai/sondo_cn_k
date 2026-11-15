@@ -73,7 +73,7 @@ fun Long.formatDate(pattern: String): String {
     }
 }
 
-/** `12s ago` / `5m ago` / `3h ago` / `MMM d, yyyy`（参考工程固定英文）。 */
+/** `12s ago` / `5m ago` / `3h ago` / `yyyy年MM月dd日`。 */
 val Long.timeAgo: String
     get() {
         val diff = nowMs() - this
@@ -83,11 +83,11 @@ val Long.timeAgo: String
         if (min < 60) return "${min}m ago"
         val hours = diff / 3_600_000
         if (hours < 24) return "${hours}h ago"
-        return ModelDate.formatMMMdyyyy(this)
+        return ModelDate.formatDate(this)
     }
 
-/** `MMM d, yyyy`（英文月份缩写）。 */
-val Long.yyyymmdd: String get() = ModelDate.formatMMMdyyyy(this)
+/** `yyyy年MM月dd日`。 */
+val Long.yyyymmdd: String get() = ModelDate.formatDate(this)
 
 fun Long.isSameDay(other: Long): Boolean {
     val a = ModelDate.localParts(this)

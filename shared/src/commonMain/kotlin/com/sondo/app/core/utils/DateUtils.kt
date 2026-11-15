@@ -6,12 +6,12 @@ import com.sondo.app.data.models.ModelDate
 
 /**
  * 日期展示（对应 Flutter 侧 DateUtils）。
- * 注意：参考工程的绝对日期固定用英文格式 `MMM d, yyyy`（如 `Nov 3, 2026`），这里保持一致。
+ * 绝对日期统一为 `yyyy年MM月dd日`（如 `2026年11月03日`，见 ModelDate.formatDate）。
  */
 object DateUtils {
     /**
      * @param time epoch 毫秒（Long / Int / 数字字符串）或 ISO-8601 字符串；无法解析返回空串
-     * 当天内：刚刚 / N 分钟前 / N 小时前；7 天内：N 天前；更早：`MMM d, yyyy`
+     * 当天内：刚刚 / N 分钟前 / N 小时前；7 天内：N 天前；更早：`yyyy年MM月dd日`
      */
     fun formatDateTime(time: Any?): String {
         val ms = toEpochMs(time) ?: return ""
@@ -28,7 +28,7 @@ object DateUtils {
         } else if (inDays < 7) {
             return "days_ago".trParams("days" to inDays.toString())
         }
-        return ModelDate.formatMMMdyyyy(ms)
+        return ModelDate.formatDate(ms)
     }
 
     fun toEpochMs(time: Any?): Long? = when (time) {

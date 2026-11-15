@@ -119,7 +119,7 @@ data class SongModel(
             return nickname ?: ""
         }
 
-    val createTimeStr: String get() = ModelDate.formatMMMdyyyy(createTime ?: 0L)
+    val createTimeStr: String get() = ModelDate.formatDate(createTime ?: 0L)
 
     fun toJson(): JSONObject = JSONObject()
         .put("id", id)

@@ -999,6 +999,8 @@ class MvCreateForm(
             isStreamLoading = true
             isTextOutputting = true
             var metaData = JSONObject()
+            // meta 到达时会先清空描述；若之后一段内容都没收到就结束，要把原描述放回去
+            var received = false
             // 重复润色时先取消上一次流，避免双回调写同一输入框
             polishStream?.close()
             polishStream = MusicVideoGenApi.polishDescriptionStream(
@@ -1013,6 +1015,7 @@ class MvCreateForm(
                 },
                 onDelta = { text ->
                     if (isCurrent()) {
+                        if (text.isNotEmpty()) received = true
                         if (isStreamLoading) isStreamLoading = false
                         setDescription(description + text)
                     }
@@ -1049,6 +1052,7 @@ class MvCreateForm(
                     if (!isInactive()) {
                         isStreamLoading = false
                         isTextOutputting = false
+                        if (!received && description.isEmpty()) setDescription(originalText)
                     }
                 },
             )

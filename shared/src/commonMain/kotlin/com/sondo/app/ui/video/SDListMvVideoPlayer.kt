@@ -232,6 +232,8 @@ class SDListMvVideoPlayerView : ComposeView<SDListMvVideoPlayerAttr, SDListMvVid
                                         showCenterPlayButton = false
                                         isLopper = a.isLopper
                                         bypassPlaybackGate = a.bypassPlaybackGate
+                                        // 资源库详情 / 广场全屏：单击暂停播放，双击不快进（参考工程默认开着双击快进 10 秒，产品要求去掉）
+                                        enableDoubleTap = false
                                     }
                                     attr {
                                         val cover = a.mv.cover

@@ -115,7 +115,7 @@ data class PushMessageModel(
     var buttonText: String = "",
     var createTime: Long = 0L,
 ) {
-    val createTimeStr: String get() = ModelDate.formatMMMdyyyy(createTime)
+    val createTimeStr: String get() = ModelDate.formatDate(createTime)
 
     fun toJson(): JSONObject = JSONObject()
         .put("contentTitle", contentTitle)

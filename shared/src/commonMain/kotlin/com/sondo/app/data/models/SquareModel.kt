@@ -101,7 +101,7 @@ data class SquareModel(
     val timeStr: String
         get() {
             if (createTime == 0L) return ""
-            return ModelDate.formatMMMdyyyy(createTime)
+            return ModelDate.formatDate(createTime)
         }
 
     val isVertical: Boolean get() = imageComp == "9:16"

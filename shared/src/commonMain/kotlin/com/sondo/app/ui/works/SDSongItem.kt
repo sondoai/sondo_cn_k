@@ -70,7 +70,7 @@ class SDSongItemView : ComposeView<SDSongItemAttr, SDSongItemEvent>() {
                 val song = ctx.attr.song
                 val type = ctx.attr.type
                 val st = song.musicGenerateStatus
-                val dateText = ModelDate.formatMMMdyyyy(song.updateTime ?: (song.createTime ?: 0L))
+                val dateText = ModelDate.formatDate(song.updateTime ?: (song.createTime ?: 0L))
                 View {
                     attr {
                         flex(1f)
