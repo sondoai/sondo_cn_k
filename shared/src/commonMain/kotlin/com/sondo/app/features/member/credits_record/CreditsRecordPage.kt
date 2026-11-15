@@ -156,7 +156,6 @@ internal class CreditsRecordPage : BasePager() {
                     attr {
                         flex(1f)
                         state = ctx.paging
-                        contentPaddingH = 16f
                         placeholderFill = true
                         emptyBuilder = {
                             View {
@@ -188,7 +187,10 @@ internal class CreditsRecordPage : BasePager() {
                     }
                     items {
                         vfor({ ctx.paging.list }) { record ->
+                            // 左右边距放在项里，不用列表的 contentPaddingH：
+                            // List 内容视图带左右内边距时子项宽度算错，卡片右侧空出一截铺不满
                             View {
+                                attr { padding(0f, 16f, 0f, 16f) }
                                 recordItem(record)
                             }
                         }

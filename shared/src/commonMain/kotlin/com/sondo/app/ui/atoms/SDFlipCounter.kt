@@ -15,11 +15,14 @@ import com.tencent.kuikly.core.base.PagerScope
 import com.tencent.kuikly.core.base.Translate
 import com.tencent.kuikly.core.base.ViewBuilder
 import com.tencent.kuikly.core.base.ViewContainer
-import com.tencent.kuikly.core.base.ViewRef
+import com.tencent.kuikly.core.directives.vbind
 import com.tencent.kuikly.core.directives.vfor
+import com.tencent.kuikly.core.pager.IPagerEventObserver
+import com.tencent.kuikly.core.pager.Pager
+import com.tencent.kuikly.core.nvi.serialization.json.JSONObject
 import com.tencent.kuikly.core.reactive.handler.observable
 import com.tencent.kuikly.core.reactive.handler.observableList
-import com.tencent.kuikly.core.views.DivView
+import com.tencent.kuikly.core.timer.setTimeout
 import com.tencent.kuikly.core.views.Text
 import com.tencent.kuikly.core.views.View
 
@@ -44,21 +47,84 @@ class SDRollingDigitAttr : ComposeAttr() {
  * 滚动数字位（Dart `AnimatedSwitcher` + `SlideTransition`：旧数向上离场、新数由下进入）。
  * 被 [SDFlipCounter] 和 [SDOfferCountdownDigits] 复用，一般不直接用。
  */
-class SDRollingDigitView : ComposeView<SDRollingDigitAttr, ComposeEvent>() {
+class SDRollingDigitView : ComposeView<SDRollingDigitAttr, ComposeEvent>(), IPagerEventObserver {
     // 两个槽位轮流充当「当前」与「上一个」
     private var text0 by observable("")
     private var text1 by observable("")
+    /**
+     * 槽位位置（声明式）：y 为自身高度的倍数（0 在位，1 在下方待命，-1 在上方离场），animated 决定这次变化是否带动画。
+     * 位置和动画开关放在同一个字段里，一次赋值 attr 只重跑一次，动画和位移落在同一轮。
+     * 以前对视图命令式调 animateToAttr，页面在后台时（比如扣积分时首页被创作页盖住）被打断的动画
+     * 会让视图卡住，之后旧字符留在原位和新字符叠在一起，每次都错。
+     */
+    private var pos0 by observable(SlotPos(0f, 1f, false, 0))
+    private var pos1 by observable(SlotPos(1f, 0f, false, 0))
+    private var posSeq = 0
+
+    /**
+     * [alpha]：不在位的槽始终透明。离场时和上移一起淡出到 0；离场的槽之后要从上方挪回下方待命，
+     * 这次挪动在 Kuikly 里仍会沿用上一次的动画、穿过可见区，透明着挪就看不见。
+     * 进场时和上移在同一次动画里淡入 —— 不能单独先恢复不透明：那一步会沿用动画，被紧接着的滑入打断后停在半透明。
+     */
+    private fun place(slot: Int, y: Float, animated: Boolean, alpha: Float = 1f) {
+        val p = SlotPos(y, alpha, animated, ++posSeq)
+        if (slot == 0) pos0 = p else pos1 = p
+    }
     private var active = 0
-    private var ref0: ViewRef<DivView>? = null
-    private var ref1: ViewRef<DivView>? = null
     private var bound = false
+    private var alive = true
+
+    /** 正在滚动；滚动期间来的新值先记下，滚完再滚（不叠加动画）。 */
+    private var rolling = false
+    private var pending: String? = null
+    private var rollGen = 0
 
     override fun createAttr(): SDRollingDigitAttr = SDRollingDigitAttr()
     override fun createEvent(): ComposeEvent = ComposeEvent()
 
+    /**
+     * 所在页面是否可见。页面在后台（比如扣积分时导航栏所在的首页被创作页盖住、App 切到后台）时，
+     * 带动画的属性变化在原生侧不会落地，数字会叠在一起或整位消失；不可见时直接换字，回到前台再把位置摆正。
+     */
+    private var pageVisible = true
+
     override fun created() {
         super.created()
         text0 = attr.value
+        val pager = getPager() as Pager
+        pageVisible = pager.isAppeared
+        pager.addPagerEventObserver(this)
+    }
+
+    override fun onPagerEvent(pagerEvent: String, eventData: JSONObject) {
+        if (!alive) return
+        when (pagerEvent) {
+            Pager.PAGER_EVENT_DID_APPEAR -> {
+                pageVisible = true
+                repair()
+            }
+            Pager.PAGER_EVENT_DID_DISAPPEAR -> pageVisible = false
+        }
+    }
+
+    /** 回到前台后重建两个字符视图的次数（新视图没有残留的动画状态）。 */
+    private var viewKey by observable(0)
+
+    /**
+     * 回到前台：当前字符在原位、另一个藏到下方，并重建两个字符视图。
+     * 后台被打断的动画会让原生视图停在中间状态，属性记录值却已是终值，之后在原视图上怎么写都纠正不回来。
+     */
+    private fun repair() {
+        rollGen++ // 作废还在路上的动画步骤
+        rolling = false
+        val next = pending
+        pending = null
+        if (next != null) {
+            if (active == 0) text0 = next else text1 = next
+        }
+        place(active, 0f, false, alpha = 1f)
+        place(1 - active, 1f, false, alpha = 0f)
+        viewKey++
     }
 
     override fun viewDidLoad() {
@@ -74,24 +140,52 @@ class SDRollingDigitView : ComposeView<SDRollingDigitAttr, ComposeEvent>() {
     }
 
     override fun viewDestroyed() {
+        alive = false
+        rollGen++
+        (getPager() as Pager).removePagerEventObserver(this)
         unbindAllValueChange()
         super.viewDestroyed()
     }
 
     private fun roll(newValue: String) {
+        if (rolling) {
+            pending = newValue
+            return
+        }
         val current = if (active == 0) text0 else text1
         if (current == newValue) return
-        val outRef = if (active == 0) ref0 else ref1
-        val inRef = if (active == 0) ref1 else ref0
+        if (!pageVisible) {
+            // 看不见就不做动画，直接换字（回到前台时 repair 会再摆正位置）
+            if (active == 0) text0 = newValue else text1 = newValue
+            return
+        }
+        rolling = true
+        val gen = ++rollGen
+        // 第一步：新字符写进待命槽（它本来就在下方、透明，只换字）
         if (active == 0) text1 = newValue else text0 = newValue
         active = 1 - active
         val d = attr.durationS
-        // 新字符先瞬移到下方，再滑入
-        inRef?.view?.also { v ->
-            v.getViewAttr().transform(Translate(0f, 1f))
-            v.animateToAttr(Animation.easeOut(d)) { transform(Translate(0f, 0f)) }
+        // 第二步（带动画）：新字符上移到位、旧字符上移离场
+        setTimeout(pagerId, 16) {
+            if (!alive || gen != rollGen) return@setTimeout
+            place(active, 0f, true)
+            place(1 - active, -1f, true, alpha = 0f)
         }
-        outRef?.view?.animateToAttr(Animation.easeIn(d)) { transform(Translate(0f, -1f)) }
+        // 第三步：时长到了把离场的槽放回下方待命（透明着挪，看不见）
+        val stepMs = (d * 1000f).toInt() + 60
+        setTimeout(pagerId, 16 + stepMs) {
+            if (!alive || gen != rollGen) return@setTimeout
+            place(1 - active, 1f, false, alpha = 0f)
+            // 第四步：这次挪动在 Kuikly 里也会沿用动画、持续一个时长；在它跑完之前不能让这个槽开始下一次动画 ——
+            // 原生动画被打断会停在中间状态（字符整位消失或新旧叠在一起）。冷却完再处理滚动期间到达的新值（只取最新的）
+            setTimeout(pagerId, stepMs) {
+                if (!alive || gen != rollGen) return@setTimeout
+                rolling = false
+                val next = pending
+                pending = null
+                if (next != null) roll(next)
+            }
+        }
     }
 
     override fun body(): ViewBuilder {
@@ -101,46 +195,42 @@ class SDRollingDigitView : ComposeView<SDRollingDigitAttr, ComposeEvent>() {
                 size(ctx.attr.boxWidth, ctx.attr.boxHeight)
                 overflow(true)
             }
-            View {
-                ref { ctx.ref0 = it }
-                attr {
-                    // 左右放宽：位宽只决定排版间距，不能把字形约束成省略号
-                    absolutePosition(top = 0f, left = -4f, bottom = 0f, right = -4f)
-                    allCenter()
-                }
-                Text {
-                    attr {
-                        text(ctx.text0)
-                        fontSize(ctx.attr.fontSize)
-                        weight(ctx.attr.weight)
-                        ctx.attr.fontFamily?.let { fontFamily(it) }
-                        color(ctx.attr.color)
-                        lines(1)
-                    }
-                }
-            }
-            View {
-                ref { ctx.ref1 = it }
-                // 初始位置单独一个静态 attr 块：下面的响应式块重跑时不会把位移冲掉
-                attr {
-                    absolutePosition(top = 0f, left = -4f, bottom = 0f, right = -4f)
-                    allCenter()
-                    transform(Translate(0f, 1f))
-                }
-                Text {
-                    attr {
-                        text(ctx.text1)
-                        fontSize(ctx.attr.fontSize)
-                        weight(ctx.attr.weight)
-                        ctx.attr.fontFamily?.let { fontFamily(it) }
-                        color(ctx.attr.color)
-                        lines(1)
+            vbind({ ctx.viewKey }) {
+                View {
+                    attr { absolutePositionAllZero() }
+                    for (slot in 0..1) {
+                        View {
+                            attr {
+                                // 左右放宽：位宽只决定排版间距，不能把字形约束成省略号
+                                absolutePosition(top = 0f, left = -4f, bottom = 0f, right = -4f)
+                                allCenter()
+                            }
+                            attr {
+                                val p = if (slot == 0) ctx.pos0 else ctx.pos1
+                                transform(Translate(0f, p.y))
+                                opacity(p.alpha)
+                                if (p.animated) animate(Animation.easeOut(ctx.attr.durationS), p.seq)
+                            }
+                            Text {
+                                attr {
+                                    text(if (slot == 0) ctx.text0 else ctx.text1)
+                                    fontSize(ctx.attr.fontSize)
+                                    weight(ctx.attr.weight)
+                                    ctx.attr.fontFamily?.let { fontFamily(it) }
+                                    color(ctx.attr.color)
+                                    lines(1)
+                                }
+                            }
+                        }
                     }
                 }
             }
         }
     }
 }
+
+/** 滚动字符槽位的位置（见 [SDRollingDigitView]）。 */
+private data class SlotPos(val y: Float, val alpha: Float, val animated: Boolean, val seq: Int)
 
 fun ViewContainer<*, *>.SDRollingDigit(init: SDRollingDigitView.() -> Unit) {
     addChild(SDRollingDigitView(), init)
