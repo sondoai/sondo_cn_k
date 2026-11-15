@@ -1,6 +1,6 @@
 {
   "app": {
-    "bundleName": "com.sondo.music.video.ai",
+    "bundleName": "com.sondo.music.video.ai.hm",
     "vendor": "sondo",
     "versionCode": 1000000,
     "versionName": "1.0.0",

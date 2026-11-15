@@ -91,7 +91,7 @@ Want（微信回跳、通知点击）不改 `EntryAbility`，统一从 `support/
    ```
    友盟鸿蒙 SDK 从这个文件读 AppKey，代码里传的 `appKey` 只用于核对（不一致会打 error 日志）。没有它统计不会上报。
 2. **AppGallery Connect**（推送的前提）：
-   - 用正式的包名 `com.sondo.music.video.ai` 创建应用，开通「推送服务」；
+   - 用正式的包名 `com.sondo.music.video.ai.hm` 创建应用，开通「推送服务」；
    - 配置手动签名（发布 / 调试证书 + Profile），在 AGC 里登记证书的 SHA256 指纹；
    - 把应用级 Client ID 填进 `module.json5` 的 `metadata.client_id`（替换占位值）。
 3. **极光控制台**（AppKey 见 `AppConstants.jpushAppKey`）：添加 HarmonyOS 平台，包名与 `app.json5` 一致，

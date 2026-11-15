@@ -61,7 +61,7 @@ HDC=/Applications/DevEco-Studio.app/Contents/sdk/default/openharmony/toolchains/
 "$HDC" list targets
 "$HDC" install -r ohosApp/entry/build/hotReload/outputs/default/entry-default-signed.hap
 "$HDC" rport tcp:8088 tcp:8088
-"$HDC" shell aa start -a EntryAbility -b com.sondo.music.video.ai
+"$HDC" shell aa start -a EntryAbility -b com.sondo.music.video.ai.hm
 ```
 
 此构建脚本只为本次 Debug 构建注入 `SONDO_KUIKLY_HOT_RELOAD=1` 和服务地址，不写签名文件。
@@ -109,7 +109,7 @@ hvigorw --mode module -p module=entry@default -p product=default -p buildMode=de
 
 ```
 ohosApp/
-├── AppScope/                         bundleName com.sondo.music.video.ai、应用名、图标
+├── AppScope/                         bundleName com.sondo.music.video.ai.hm、应用名、图标
 ├── build-profile.json5               compatibleSdkVersion 5.0.0(12)、useNormalizedOHMUrl（字节码 HAR 需要）
 └── entry/
     ├── oh-package.json5              @kuikly-open/render + 各 SDK

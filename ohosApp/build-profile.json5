@@ -70,7 +70,7 @@
     ],
     "capabilities": [
       {
-        "bundleName": "com.sondo.music.video.ai",
+        "bundleName": "com.sondo.music.video.ai.hm",
         "config": [
           {
             "name": "Push Kit",
