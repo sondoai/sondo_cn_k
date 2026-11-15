@@ -403,30 +403,29 @@ class SDSeekBarView : ComposeView<SDSeekBarAttr, SDSeekBarEvent>() {
                         SDTrackSweep { attr { color = ctx.attr.loadingColor } }
                     }
                 }
-                // 已播放 + 滑块：滑块挂在已播放段的末端（同一个容器），两者只跟着一个宽度走，不会断成两段
+                // 已播放
                 View {
                     attr {
                         absolutePosition(top = 0f, left = 0f, bottom = 0f)
                         width(ctx.trackWidth * ctx.displayRatio)
+                        borderRadius(ctx.trackRadius)
+                        backgroundColor(ctx.attr.activeColor)
                     }
-                    View {
-                        attr {
-                            absolutePositionAllZero()
-                            borderRadius(ctx.trackRadius)
-                            backgroundColor(ctx.attr.activeColor)
-                        }
-                    }
-                    // 滑块（以自身中心对齐已播放段末端）
-                    View {
-                        attr {
-                            val r = if (ctx.isDragging) ctx.attr.activeThumbRadius else ctx.attr.thumbRadius
-                            val th = if (ctx.isDragging) ctx.attr.activeTrackHeight else ctx.attr.trackHeight
-                            absolutePosition(top = th / 2f - r, right = -r)
-                            size(r * 2f, r * 2f)
-                            borderRadius(r)
-                            backgroundColor(ctx.attr.activeColor)
-                        }
-                    }
+                }
+            }
+
+            // 滑块：放在根视图上（高度 = 触摸区，装得下滑块），不挂在 2 高的轨道里 ——
+            // 鸿蒙会裁掉超出父视图的部分，挂在轨道上时滑块只剩轨道那一条、看不见
+            View {
+                attr {
+                    val r = if (ctx.isDragging) ctx.attr.activeThumbRadius else ctx.attr.thumbRadius
+                    val th = if (ctx.isDragging) ctx.attr.activeTrackHeight else ctx.attr.trackHeight
+                    val centerY = if (ctx.attr.alignBottom) ctx.attr.touchHeight - th / 2f else ctx.attr.touchHeight / 2f
+                    absolutePosition(top = centerY - r, left = ctx.attr.paddingH + ctx.trackWidth * ctx.displayRatio - r)
+                    size(r * 2f, r * 2f)
+                    borderRadius(r)
+                    backgroundColor(ctx.attr.activeColor)
+                    touchEnable(false)
                 }
             }
 
