@@ -69,11 +69,6 @@ object AppConstants {
     const val enableMvDanceShare = false
     /** 作品是否允许发布。关则隐藏入口并拦截发布/取消发布；歌曲编辑仍走同一接口，不受影响。 */
     const val enableWorkPublish = false
-    /**
-     * 是否允许从主入口进入订阅页、积分购买页和推荐奖励。
-     * 关则隐藏积分详情上的「更多」、我的页「推荐奖励」、首页登录后的邀请横幅，其余主入口点击直接返回。
-     */
-    const val enableMemberPageEntry = false
     /** MV 创作是否允许上传 2 位歌手。关则最多 1 位。 */
     const val enableMvDualSinger = true
 

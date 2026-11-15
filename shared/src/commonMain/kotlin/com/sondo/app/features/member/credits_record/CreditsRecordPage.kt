@@ -4,7 +4,6 @@ import com.sondo.app.base.AppEnv
 import com.sondo.app.base.BasePager
 import com.sondo.app.base.Events
 import com.sondo.app.base.Routes
-import com.sondo.app.core.constants.AppConstants
 import com.sondo.app.core.constants.AssetsImage
 import com.sondo.app.core.constants.UIColor
 import com.sondo.app.core.constants.asset
@@ -43,7 +42,7 @@ private class RecordFilter(val name: String, val value: String)
  * 积分记录页（Dart: features/member/presentation/pages/credits_record/credits_record_page.dart
  * + CreditsRecordController）。积分流水分页 + 全部 / 消耗 / 获得筛选。
  *
- * 参数：无。「更多」入口（去积分购买 / 订阅）受 `AppConstants.enableMemberPageEntry` 控制。
+ * 参数：无。「更多」入口去积分购买（未订阅先去订阅页）。
  */
 @Page(Routes.creditsRecord)
 internal class CreditsRecordPage : BasePager() {
@@ -102,8 +101,6 @@ internal class CreditsRecordPage : BasePager() {
 
     /** 跳转积分购买；未订阅用户先跳转订阅页 */
     fun goToCreditsPurchase() {
-        // 主入口关闭时不进积分购买或订阅页。
-        if (!AppConstants.enableMemberPageEntry) return
         if (UserStore.isSubscribed) {
             nav.push(Routes.creditsPurchase) { result ->
                 DevLog.logger("result: $result")
@@ -244,28 +241,25 @@ private fun ViewContainer<*, *>.recordHeader(ctx: CreditsRecordPage) {
                     }
                 }
             }
-            // 主入口关闭时不展示「更多」，避免从积分详情进入积分购买或订阅页。
-            if (AppConstants.enableMemberPageEntry) {
-                View {
+            View {
+                attr {
+                    flexDirectionRow()
+                    alignItemsCenter()
+                    padding(4f, 10f, 4f, 10f)
+                    borderRadius(30f)
+                    backgroundLinearGradient(
+                        Direction.TO_RIGHT,
+                        ColorStop(Color(0xFFE661F6L), 0f),
+                        ColorStop(Color(0xFF7F58F7L), 1f),
+                    )
+                }
+                event { click { ctx.goToCreditsPurchase() } }
+                SDText("more".tr, size = 12f, height = 1.4f) { attr { fontWeightBold() } }
+                Image {
                     attr {
-                        flexDirectionRow()
-                        alignItemsCenter()
-                        padding(4f, 10f, 4f, 10f)
-                        borderRadius(30f)
-                        backgroundLinearGradient(
-                            Direction.TO_RIGHT,
-                            ColorStop(Color(0xFFE661F6L), 0f),
-                            ColorStop(Color(0xFF7F58F7L), 1f),
-                        )
-                    }
-                    event { click { ctx.goToCreditsPurchase() } }
-                    SDText("more".tr, size = 12f, height = 1.4f) { attr { fontWeightBold() } }
-                    Image {
-                        attr {
-                            size(20f, 20f)
-                            src(AssetsImage.creditsAdd.asset())
-                            resizeContain()
-                        }
+                        size(20f, 20f)
+                        src(AssetsImage.creditsAdd.asset())
+                        resizeContain()
                     }
                 }
             }

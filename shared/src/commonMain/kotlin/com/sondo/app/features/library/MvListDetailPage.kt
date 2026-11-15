@@ -521,8 +521,6 @@ internal class MvListDetailPage : BasePager() {
 
     /** 点击末段订阅卡片进入订阅页；显式点击不受自动跳转防重复标记影响。 */
     internal fun onSubscribeCardTap() {
-        // 主入口关闭时不从订阅卡片进订阅页。
-        if (!AppConstants.enableMemberPageEntry) return
         openSubscribePage()
     }
 

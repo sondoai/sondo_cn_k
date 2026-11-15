@@ -130,5 +130,5 @@ ohosApp/           鸿蒙宿主
 ## 环境与开关
 
 - `gradle.properties`：`API_ENV`（local/test/prod）、`SHOW_TOKEN_EDITOR`、Android 版本号。
-- 业务开关在 `AppConstants`（`enableMvDanceShare`、`enableWorkPublish`、`enableMemberPageEntry` 等），与参考工程保持一致。
+- 业务开关在 `AppConstants`（`enableMvDanceShare`、`enableWorkPublish` 等），与参考工程保持一致。
 - 隐私合规：友盟、极光、微信、深链、联网都必须在用户同意隐私政策之后才初始化（根页面的 Gate 负责）。

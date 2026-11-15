@@ -3,7 +3,6 @@ package com.sondo.app.ui.works
 import com.sondo.app.base.BasePager
 import com.sondo.app.base.Events
 import com.sondo.app.base.Routes
-import com.sondo.app.core.constants.AppConstants
 import com.sondo.app.core.constants.AssetsImage
 import com.sondo.app.core.i18n.tr
 import com.sondo.app.core.utils.DevLog
@@ -76,8 +75,6 @@ class SDNavPointsView : ComposeView<SDNavPointsAttr, ComposeEvent>() {
                 pager.nav.push(Routes.discount)
                 return@launch
             }
-            // 主入口关闭时不进积分购买或订阅页；回归周卡和折扣仍可进
-            if (!AppConstants.enableMemberPageEntry) return@launch
             if (UserStore.isSubscribed) {
                 pager.nav.push(Routes.creditsPurchase)
                 UmengUtils.logEventButtonClick("credit_purchase")

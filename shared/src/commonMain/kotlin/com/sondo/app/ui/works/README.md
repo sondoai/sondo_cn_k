@@ -32,7 +32,7 @@
 
 | Kotlin | Dart | 属性 / 事件 | 用法 |
 |---|---|---|---|
-| `SDNavPoints { }` | `NavPoints` | attr：`isOnlyPoints`。自带：召回倒计时 > 折扣倒计时 > 积分（翻牌动画）/「会员」；积分增减浮动（`POINTS_CHANGED.delta`）；点击流程（登录 → `RecallFlow.openProductFromHome` → 折扣页 → `AppConstants.enableMemberPageEntry` 闸门 → 积分包 / 订阅页） | `SDNavPoints()` |
+| `SDNavPoints { }` | `NavPoints` | attr：`isOnlyPoints`。自带：召回倒计时 > 折扣倒计时 > 积分（翻牌动画）/「会员」；积分增减浮动（`POINTS_CHANGED.delta`）；点击流程（登录 → `RecallFlow.openProductFromHome` → 折扣页 → 积分包 / 订阅页） | `SDNavPoints()` |
 | `SDNavRootAppBar { }` | `NavRootAppBarWidget` | attr：`title`(obs) `titleWidget: ViewBuilder?` `headerReveal: Float?`(obs) `headerImmersive: Boolean?`(obs) `withStatusBar`(true)。event：`onTapTitle { }` `onDoubleTapTitle { }` `onTapHelp { }`（注册才显示帮助图标）。高 56（+状态栏） | `SDNavRootAppBar { attr { title = "create".tr } }` |
 | `SDNavPlayer { }` | `NavPlayerWidget` | 无属性；无当前歌曲时不占空间。点封面 / 标题 → 详情（仅生成成功），上一首 / 播放暂停 / 下一首 | `SDNavPlayer()` |
 

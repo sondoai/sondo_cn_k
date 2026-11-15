@@ -1,6 +1,5 @@
 package com.sondo.app.features.home.widgets
 
-import com.sondo.app.core.constants.AppConstants
 import com.sondo.app.core.constants.AssetsImage
 import com.sondo.app.core.constants.asset
 import com.sondo.app.core.i18n.tr
@@ -181,11 +180,7 @@ internal fun ViewContainer<*, *>.homeAdBanner(ctx: HomeTabView) {
         }
         event {
             click {
-                val isLogin = ctx.isLogin
-                val memberEntry = AppConstants.enableMemberPageEntry
-                if (isLogin && !memberEntry) {
-                    ctx.toNavBar(1)
-                } else if (isLogin) {
+                if (ctx.isLogin) {
                     ctx.toReferral()
                 } else {
                     UmengUtils.logEventButtonClick("ad_login_gift")
@@ -195,10 +190,8 @@ internal fun ViewContainer<*, *>.homeAdBanner(ctx: HomeTabView) {
         }
         Image {
             attr {
-                val memberEntry = AppConstants.enableMemberPageEntry
-                // 主入口关闭且已登录：改展示创建 MV 广告。未登录仍走新人礼包
                 val image = if (ctx.isLogin) {
-                    if (memberEntry) "join_now.png" else "create-mv-ad.png"
+                    "join_now.png"
                 } else if (ctx.loginPoint > 0) {
                     "newcomer_gift.png"
                 } else {

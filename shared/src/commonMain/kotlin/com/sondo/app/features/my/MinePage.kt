@@ -4,7 +4,6 @@ import com.sondo.app.base.AppEnv
 import com.sondo.app.base.BasePager
 import com.sondo.app.base.Events
 import com.sondo.app.base.Routes
-import com.sondo.app.core.constants.AppConstants
 import com.sondo.app.core.constants.AssetsImage
 import com.sondo.app.core.constants.asset
 import com.sondo.app.core.i18n.tr
@@ -63,11 +62,7 @@ internal class MinePage : BasePager() {
             MineItem.feedback, MineItem.sendEmail -> launch { UserStore.sendEmail() }
             MineItem.contactUs -> UserStore.openContactUs(ctx)
             MineItem.activationCode -> openActivationCode()
-            MineItem.referral -> {
-                // 主入口关闭时不进推荐奖励。
-                if (!AppConstants.enableMemberPageEntry) return
-                nav.push(Routes.referral)
-            }
+            MineItem.referral -> nav.push(Routes.referral)
             MineItem.trash -> nav.push(Routes.trash)
             MineItem.settings -> nav.push(Routes.setting)
         }
@@ -138,11 +133,8 @@ internal class MinePage : BasePager() {
                 }
             }
             mineUserInfo(ctx)
-            // 主入口关闭时不展示会员有效期和去订阅横幅。
-            if (AppConstants.enableMemberPageEntry) {
-                View { attr { height(5f) } }
-                mineSubscribe(ctx)
-            }
+            View { attr { height(5f) } }
+            mineSubscribe(ctx)
             View { attr { height(20f) } }
             Scroller {
                 attr {
@@ -151,10 +143,7 @@ internal class MinePage : BasePager() {
                     bouncesEnable(false)
                 }
                 mineItem(ctx, MineItem.feedback, "feedback".tr, AssetsImage.mail)
-                // 主入口关闭时不展示推荐奖励。
-                if (AppConstants.enableMemberPageEntry) {
-                    mineItem(ctx, MineItem.referral, "referral_rewards".tr, AssetsImage.referralPresent)
-                }
+                mineItem(ctx, MineItem.referral, "referral_rewards".tr, AssetsImage.referralPresent)
                 if (AppEnv.isAndroid) {
                     mineItem(ctx, MineItem.activationCode, "activation_code".tr, AssetsImage.key)
                 }
@@ -352,8 +341,6 @@ private fun ViewContainer<*, *>.mineSubscribe(ctx: MinePage) {
         event {
             click {
                 if (ctx.isSubscribed) return@click
-                // 主入口关闭时不进订阅页。
-                if (!AppConstants.enableMemberPageEntry) return@click
                 ctx.nav.push(Routes.subscribe)
             }
         }

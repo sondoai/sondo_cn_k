@@ -4,7 +4,6 @@ import com.sondo.app.base.AppEnv
 import com.sondo.app.base.BasePager
 import com.sondo.app.base.Events
 import com.sondo.app.base.Routes
-import com.sondo.app.core.constants.AppConstants
 import com.sondo.app.core.constants.AssetsImage
 import com.sondo.app.core.constants.StorageKey
 import com.sondo.app.core.constants.asset
@@ -368,9 +367,8 @@ class HomeTabView : ComposeView<HomeTabAttr, ComposeEvent>() {
         }
     }
 
-    /** 跳转邀请页。主入口关闭时不进推荐奖励。 */
+    /** 跳转邀请页。 */
     internal fun toReferral() {
-        if (!AppConstants.enableMemberPageEntry) return
         page.nav.push(Routes.referral)
         UmengUtils.logEventButtonClick("to_referral", pageName = "/home")
     }
@@ -677,8 +675,7 @@ internal fun flutterRouteToPage(route: String): String? = when (route) {
     "/square" -> Routes.square
     "/square/play" -> Routes.squarePlay
     "/square/play-detail" -> Routes.squarePlayDetail
-    // 产品要求：会员入口关闭时轮播也不进邀请页（返回 null，由调用方落到 MV 创作）
-    "/referral" -> if (AppConstants.enableMemberPageEntry) Routes.referral else null
+    "/referral" -> Routes.referral
     "/setting" -> Routes.setting
     "/trash" -> Routes.trash
     "/discount" -> Routes.discount
