@@ -4,6 +4,7 @@
 #
 # 用法：
 #   ./scripts/build/build_app.sh                       # 全交互
+#   ./scripts/build/build_app.sh -p android -e test -m release --no-token --no-upload
 #   ./scripts/build/build_app.sh -p android -e test -m release --token --upload -d "修复登录"
 #
 # 参数（给了就不再问，全部给齐即可免交互）：
