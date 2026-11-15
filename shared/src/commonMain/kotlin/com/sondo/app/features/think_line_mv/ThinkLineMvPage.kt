@@ -283,7 +283,7 @@ private fun ViewContainer<*, *>.stepItem(ctx: ThinkLineMvPage, vm: TLStepVm) {
         attr {
             flexDirectionRow()
         }
-        // 左：图标 + 虚线
+        // 左：图标
         View {
             attr {
                 width(16f)
@@ -295,16 +295,19 @@ private fun ViewContainer<*, *>.stepItem(ctx: ThinkLineMvPage, vm: TLStepVm) {
                 }
                 stepIcon(vm)
             }
-            vif({ !vm.isLast }) {
-                View {
-                    attr {
-                        flex(1f)
-                        margin(4f, 0f, 4f, 0f)
-                        flexDirectionRow()
-                        justifyContentCenter()
-                    }
-                    SDDashedLine(horizontal = false, dashLength = 4f, dashGap = 3f, color = kTlWhite30, strokeWidth = 1.5f)
+        }
+        // 连接下一步的虚线：相对整行绝对定位（图标区 20 + 间距 4 起，到行底上方 4 止）。
+        // Dart 用 IntrinsicHeight + Expanded 撑满；Kuikly 里左列不会被拉伸到行高，flex(1f) 的虚线容器高度为 0，虚线不显示
+        vif({ !vm.isLast }) {
+            View {
+                attr {
+                    absolutePosition(top = 24f, bottom = 4f, left = 0f)
+                    width(16f)
+                    flexDirectionRow()
+                    justifyContentCenter()
+                    touchEnable(false)
                 }
+                SDDashedLine(horizontal = false, dashLength = 4f, dashGap = 3f, color = kTlWhite30, strokeWidth = 1.5f)
             }
         }
         // 右：标题 / 描述 / 卡片
