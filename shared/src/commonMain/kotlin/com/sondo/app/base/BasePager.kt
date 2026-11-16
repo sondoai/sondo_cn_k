@@ -122,6 +122,16 @@ abstract class BasePager : Pager() {
         super.pageWillDestroy()
     }
 
+    /**
+     * 页面拆除途中（`onDestroyPager` 已置 willDestroy）不再布局：此时节点正被逐个摘下，
+     * 销毁回调里写 observable 会经 `Attr.endApplyAttrProperty` 同步触发整页布局，
+     * 已脱离 ListView 的 ListContentView 在 `onPagerWillCalculateLayoutFinish` 里强转 parent 抛 NPE。
+     */
+    override fun onLayoutView() {
+        if (isWillDestroy()) return
+        super.onLayoutView()
+    }
+
     final override fun body(): ViewBuilder {
         val ctx = this
         return {

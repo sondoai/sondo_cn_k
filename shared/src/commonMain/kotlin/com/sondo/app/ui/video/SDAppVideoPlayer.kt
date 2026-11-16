@@ -339,8 +339,9 @@ class SDAppVideoPlayerView : ComposeView<SDAppVideoPlayerAttr, SDAppVideoPlayerE
             (getPager() as Pager).acquireModule<NotifyModule>(NotifyModule.MODULE_NAME).removeNotify(Events.APP_LIFECYCLE, it)
         }
         lifecycleRef = null
-        unbindCurrent(disposeOwned = true)
+        // 先解绑：dispose() 会写控制器的 observable，不要再跑本组件的 bindValueChange
         unbindAllValueChange()
+        unbindCurrent(disposeOwned = true)
         super.viewDestroyed()
     }
 
@@ -402,12 +403,17 @@ class SDAppVideoPlayerView : ComposeView<SDAppVideoPlayerAttr, SDAppVideoPlayerE
         } else {
             c.pause()
         }
-        current = null
+        // 组件已销毁时不再写 observable（刷新 UI 无意义，还可能在页面拆除途中触发布局）
+        if (alive) current = null
     }
 
-    /** 换源 / 卸载前通知页面（Dart onControllerReleased）。 */
+    /**
+     * 换源 / 卸载前通知页面（Dart onControllerReleased）。
+     * 整页销毁时父组件和页面也在一起被拆，不再派发（回调里写 observable 会在拆除途中触发布局）。
+     */
     private fun releaseCurrentDecoderCallbacks() {
         val c = current ?: return
+        if ((getPager() as Pager).isWillDestroy()) return
         if (mountedView != null) event.controllerReleased?.invoke(c)
     }
 

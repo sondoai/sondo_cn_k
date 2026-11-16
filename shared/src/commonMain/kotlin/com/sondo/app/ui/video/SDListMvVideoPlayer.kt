@@ -103,8 +103,8 @@ class SDListMvVideoPlayerView : ComposeView<SDListMvVideoPlayerAttr, SDListMvVid
     override fun viewDestroyed() {
         alive = false
         revealTimer?.let { clearTimeout(it) }
-        handleReleased()
         unbindAllValueChange()
+        handleReleased()
         super.viewDestroyed()
     }
 
@@ -135,7 +135,9 @@ class SDListMvVideoPlayerView : ComposeView<SDListMvVideoPlayerAttr, SDListMvVid
     }
 
     private fun handleReleased() {
-        if (controller != null) {
+        // 整页销毁途中只清定时器：写 controller（observable）会重跑带动画的 attr 闭包并同步触发布局
+        val pagerDestroying = (getPager() as? com.tencent.kuikly.core.pager.Pager)?.isWillDestroy() == true
+        if (controller != null && !pagerDestroying) {
             controller = null
             event.disposed?.invoke(attr.index)
         }
